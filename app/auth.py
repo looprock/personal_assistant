@@ -76,6 +76,7 @@ async def login_page(request: Request):
 
 @router.post("/login")
 async def login(
+    request: Request,
     response: Response,
     username: str = Form(...),
     password: str = Form(...),
@@ -89,7 +90,7 @@ async def login(
         _COOKIE_NAME,
         token,
         httponly=True,
-        secure=True,
+        secure=request.url.scheme == "https",
         samesite="lax",
         max_age=_TOKEN_EXPIRE_DAYS * 86400,
     )
