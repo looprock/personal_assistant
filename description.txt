@@ -1,0 +1,22 @@
+I'm not diligent about checking my work email
+I sometimes miss slack messages through all the noise
+I'm not consistent in how I manage To Do items and they get spread across:
+- Joplin (UI, backed by Dropbox)
+- todoist
+- Jira
+
+Considerations:
+I can run api/webhook endpoints to proxy data if required
+Are there any MCP servers which could be benefit this project
+Are there any skills which could benefit this project
+I'm not married to any of the tools references in this document
+I would like a daily summary of important things at 8am every day
+
+
+Summarize:
+The weather for the day
+The stock price of Ethos Technologies Inc today
+Critical emails I haven't responded to in 12 hours
+slack messages I'm @ but haven't responded to in 12 hours
+Jira tickets that are owned by me with a status of "To Do" that haven't had any activity in a week
+Any critical or unfiled to-do items

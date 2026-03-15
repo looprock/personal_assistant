@@ -1,0 +1,61 @@
+{# Fixed bottom tab navigation — active_tab: 'home' | 'todos' | 'jira' | 'slack' #}
+<nav class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-20">
+  <div class="max-w-4xl mx-auto flex">
+
+    <a href="/"
+       class="relative flex-1 flex flex-col items-center py-3 gap-1 text-xs font-medium transition-colors
+              {{ 'text-blue-600' if active_tab == 'home' else 'text-gray-400 hover:text-gray-600' }}">
+      <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+        <path stroke-linecap="round" stroke-linejoin="round"
+              d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+      </svg>
+      Home
+    </a>
+
+    <a href="/todos"
+       class="relative flex-1 flex flex-col items-center py-3 gap-1 text-xs font-medium transition-colors
+              {{ 'text-blue-600' if active_tab == 'todos' else 'text-gray-400 hover:text-gray-600' }}">
+      <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+        <path stroke-linecap="round" stroke-linejoin="round"
+              d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+      </svg>
+      Todos
+      {% if unprocessed_count %}
+      <span class="absolute top-1 right-6 w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+        {{ unprocessed_count }}
+      </span>
+      {% endif %}
+    </a>
+
+    <a href="/jira"
+       class="relative flex-1 flex flex-col items-center py-3 gap-1 text-xs font-medium transition-colors
+              {{ 'text-blue-600' if active_tab == 'jira' else 'text-gray-400 hover:text-gray-600' }}">
+      <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+        <path stroke-linecap="round" stroke-linejoin="round"
+              d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a2 2 0 014-4z" />
+      </svg>
+      Jira
+      {% if jira_count %}
+      <span class="absolute top-1 right-6 w-4 h-4 bg-orange-400 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+        {{ jira_count }}
+      </span>
+      {% endif %}
+    </a>
+
+    <a href="/slack"
+       class="relative flex-1 flex flex-col items-center py-3 gap-1 text-xs font-medium transition-colors
+              {{ 'text-blue-600' if active_tab == 'slack' else 'text-gray-400 hover:text-gray-600' }}">
+      <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+        <path stroke-linecap="round" stroke-linejoin="round"
+              d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+      </svg>
+      Slack
+      {% if slack_count %}
+      <span class="absolute top-1 right-6 w-4 h-4 bg-yellow-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+        {{ slack_count }}
+      </span>
+      {% endif %}
+    </a>
+
+  </div>
+</nav>

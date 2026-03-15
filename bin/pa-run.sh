@@ -1,0 +1,11 @@
+#!/bin/bash
+set -e
+source /Users/YOU/git/uncommitted/personal_assistant/secrets.sh
+cd /Users/YOU/git/uncommitted/personal_assistant
+# First arg is the command (uvicorn or a python module); rest are args.
+CMD="$1"; shift
+if [ "$CMD" = "uvicorn" ]; then
+  exec uv run uvicorn "$@"
+else
+  exec uv run python -m "$CMD" "$@"
+fi

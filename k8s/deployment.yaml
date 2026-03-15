@@ -1,0 +1,86 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: personal-assistant
+  namespace: personal-assistant
+  labels:
+    app: personal-assistant
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: personal-assistant
+  template:
+    metadata:
+      labels:
+        app: personal-assistant
+    spec:
+      containers:
+        - name: api
+          image: your-registry/personal-assistant:latest
+          ports:
+            - containerPort: 8000
+          envFrom:
+            - secretRef:
+                name: personal-assistant-secrets
+          env:
+            - name: PA_CONFIG_PATH
+              value: /config/config.yaml
+          volumeMounts:
+            - name: config
+              mountPath: /config
+              readOnly: true
+          readinessProbe:
+            httpGet:
+              path: /auth/login
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+      volumes:
+        - name: config
+          configMap:
+            name: personal-assistant-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: personal-assistant
+  namespace: personal-assistant
+spec:
+  selector:
+    app: personal-assistant
+  ports:
+    - port: 80
+      targetPort: 8000
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: personal-assistant
+  namespace: personal-assistant
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: assistant.your-domain.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: personal-assistant
+                port:
+                  number: 80
+  tls:
+    - hosts:
+        - assistant.your-domain.com
+      secretName: personal-assistant-tls

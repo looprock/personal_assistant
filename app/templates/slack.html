@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Slack{% endblock %}
+{% block body %}
+
+<div class="max-w-4xl mx-auto px-4 py-6 pb-24 space-y-4">
+
+  {% include "partials/page_header.html" %}
+
+  {% set search_url = "/slack/search/htmx" %}
+  {% set search_target = "#slack-content" %}
+  {% include "partials/search_input.html" %}
+
+  <div class="bg-white rounded-2xl p-4 shadow-sm">
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="text-sm font-semibold text-gray-700">Unanswered Slack Mentions</h2>
+      <span class="bg-yellow-100 text-yellow-700 text-xs font-semibold px-2 py-0.5 rounded-full">
+        {{ slack_mentions | length }}
+      </span>
+    </div>
+    <div id="slack-content">
+      {% include "partials/slack_list.html" %}
+    </div>
+  </div>
+
+
+</div>
+
+{% include "partials/tab_nav.html" %}
+
+{% endblock %}

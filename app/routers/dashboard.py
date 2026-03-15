@@ -1,0 +1,184 @@
+"""
+Dashboard routes — one per tab: /todos, /jira, /slack.
+/ redirects to /todos.
+"""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+from fastapi import APIRouter, Depends, Request
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
+
+import os
+
+from app.auth import require_auth
+from app.db import pool
+from app import job_status
+from app.integrations import calendar as calendar_mod
+from app import config as cfg_module
+
+router = APIRouter(tags=["dashboard"], dependencies=[Depends(require_auth)])
+templates = Jinja2Templates(directory=str(Path(__file__).parent.parent / "templates"))
+cfg = cfg_module.cfg
+
+
+async def _missing_badge_counts(
+    conn,
+    *,
+    unprocessed_count: int | None = None,
+    jira_count: int | None = None,
+    slack_count: int | None = None,
+) -> dict:
+    """Query only the badge counts that weren't already derived from fetched rows."""
+    if unprocessed_count is None:
+        unprocessed_count = await conn.fetchval(
+            "SELECT COUNT(*) FROM todos WHERE completed_at IS NULL AND tags = '{}'"
+        )
+    if jira_count is None:
+        jira_count = await conn.fetchval(
+            "SELECT COUNT(*) FROM jira_tickets WHERE ticket_key NOT IN "
+            "(SELECT ticket_key FROM jira_ignores)"
+        )
+    if slack_count is None:
+        slack_count = await conn.fetchval(
+            "SELECT COUNT(*) FROM slack_mentions"
+        )
+    return {
+        "unprocessed_count": unprocessed_count,
+        "jira_count": jira_count,
+        "slack_count": slack_count,
+    }
+
+
+@router.get("/", response_class=HTMLResponse)
+async def index(request: Request):
+    """Unified 3-column overview."""
+    async with pool().acquire() as conn:
+        unprocessed = await conn.fetch(
+            "SELECT * FROM todos WHERE completed_at IS NULL AND tags = '{}' ORDER BY created_at DESC"
+        )
+        active = await conn.fetch(
+            "SELECT * FROM todos WHERE completed_at IS NULL AND tags != '{}' "
+            "AND (snoozed_until IS NULL OR snoozed_until < NOW()) ORDER BY created_at DESC"
+        )
+        jira_tickets = await conn.fetch(
+            "SELECT * FROM jira_tickets WHERE ticket_key NOT IN "
+            "(SELECT ticket_key FROM jira_ignores) ORDER BY last_activity ASC NULLS LAST"
+        )
+        slack_mentions = await conn.fetch(
+            "SELECT * FROM slack_mentions ORDER BY cached_at DESC"
+        )
+        snapshot_rows = await conn.fetch(
+            "SELECT key, data FROM snapshots WHERE key = 'weather' OR key LIKE 'stock:%'"
+        )
+
+    weather_row = next((r for r in snapshot_rows if r["key"] == "weather"), None)
+    weather = json.loads(weather_row["data"]) if weather_row else None
+    stocks = [
+        {"ticker": r["key"].removeprefix("stock:"), **json.loads(r["data"])}
+        for r in snapshot_rows if r["key"].startswith("stock:")
+    ]
+
+    try:
+        calendar_events = await calendar_mod.fetch_today(
+            username=cfg.icloud.username,
+            password=os.environ.get("PA_ICLOUD_PASSWORD", ""),
+            caldav_url=cfg.calendar.caldav_url,
+            calendar_names=cfg.calendar.calendars or None,
+        )
+    except Exception:
+        calendar_events = []
+
+    return templates.TemplateResponse("dashboard.html", {
+        "request": request,
+        "active_tab": "home",
+        "unprocessed_todos": [dict(r) for r in unprocessed],
+        "active_todos": [dict(r) for r in active],
+        "jira_tickets": [dict(r) for r in jira_tickets],
+        "slack_mentions": [dict(r) for r in slack_mentions],
+        "weather": weather,
+        "stocks": stocks,
+        "calendar_events": calendar_events,
+        "job_health": await job_status.health(),
+        "unprocessed_count": len(unprocessed),
+        "jira_count": len(jira_tickets),
+        "slack_count": len(slack_mentions),
+    })
+
+
+@router.get("/todos", response_class=HTMLResponse)
+async def todos_page(request: Request):
+    async with pool().acquire() as conn:
+        unprocessed = await conn.fetch(
+            "SELECT * FROM todos WHERE completed_at IS NULL AND tags = '{}' ORDER BY created_at DESC"
+        )
+        active = await conn.fetch(
+            "SELECT * FROM todos WHERE completed_at IS NULL AND tags != '{}' "
+            "AND (snoozed_until IS NULL OR snoozed_until < NOW()) ORDER BY created_at DESC"
+        )
+        badge_counts = await _missing_badge_counts(
+            conn,
+            unprocessed_count=len(unprocessed),
+        )
+
+    seen: set[str] = set()
+    all_tags: list[str] = []
+    for r in active:
+        for t in r["tags"]:
+            if t not in seen:
+                seen.add(t)
+                all_tags.append(t)
+
+    return templates.TemplateResponse("todos.html", {
+        "request": request,
+        "active_tab": "todos",
+        "unprocessed_todos": [dict(r) for r in unprocessed],
+        "active_todos": [dict(r) for r in active],
+        "all_tags": sorted(all_tags),
+        "job_health": await job_status.health(),
+        **badge_counts,
+    })
+
+
+@router.get("/jira", response_class=HTMLResponse)
+async def jira_page(request: Request):
+    async with pool().acquire() as conn:
+        jira_tickets = await conn.fetch(
+            "SELECT * FROM jira_tickets WHERE ticket_key NOT IN "
+            "(SELECT ticket_key FROM jira_ignores) ORDER BY last_activity ASC NULLS LAST"
+        )
+        badge_counts = await _missing_badge_counts(
+            conn,
+            jira_count=len(jira_tickets),
+        )
+
+    return templates.TemplateResponse("jira.html", {
+        "request": request,
+        "active_tab": "jira",
+        "jira_tickets": [dict(r) for r in jira_tickets],
+        "job_health": await job_status.health(),
+        **badge_counts,
+    })
+
+
+@router.get("/slack", response_class=HTMLResponse)
+async def slack_page(request: Request):
+    async with pool().acquire() as conn:
+        slack_mentions = await conn.fetch(
+            "SELECT * FROM slack_mentions ORDER BY cached_at DESC"
+        )
+        badge_counts = await _missing_badge_counts(
+            conn,
+            slack_count=len(slack_mentions),
+        )
+
+    return templates.TemplateResponse("slack.html", {
+        "request": request,
+        "active_tab": "slack",
+        "slack_mentions": [dict(r) for r in slack_mentions],
+        "job_health": await job_status.health(),
+        **badge_counts,
+    })

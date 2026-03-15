@@ -1,0 +1,23 @@
+{% if jira_tickets %}
+<div class="space-y-0">
+  {% for t in jira_tickets %}
+  <div id="jira-{{ t.ticket_key | replace('-', '_') }}"
+       class="flex items-center gap-2 py-2 border-b border-gray-100 last:border-0">
+    <a href="{{ t.url }}" target="_blank"
+       class="text-sm font-medium text-blue-600 hover:underline flex-shrink-0">{{ t.ticket_key }}</a>
+    <span class="text-sm text-gray-700 truncate flex-1">{{ t.title }}</span>
+    <span class="text-xs text-gray-400 flex-shrink-0">{{ t.status }}</span>
+    <button
+      hx-post="/jira/dismiss/{{ t.ticket_key }}"
+      hx-target="#jira-{{ t.ticket_key | replace('-', '_') }}"
+      hx-swap="outerHTML"
+      class="flex-shrink-0 text-xs text-gray-300 hover:text-red-400 transition-colors"
+      title="Dismiss">
+      Dismiss
+    </button>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<p class="text-sm text-gray-400 text-center py-4">No tickets found.</p>
+{% endif %}

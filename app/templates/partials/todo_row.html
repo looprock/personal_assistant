@@ -1,0 +1,122 @@
+{# Reusable todo row — single line with expandable editors #}
+<div id="todo-{{ todo.id }}" class="group py-2 border-b border-gray-100 last:border-0">
+  <div class="flex items-center gap-2">
+
+  {# Complete button #}
+  <button
+    hx-post="/todos/{{ todo.id }}/complete/htmx"
+    hx-target="#todo-{{ todo.id }}"
+    hx-swap="outerHTML"
+    class="w-4 h-4 rounded-full border-2 border-gray-300 hover:border-green-500 hover:bg-green-50 flex-shrink-0 transition-colors"
+    title="Mark complete">
+  </button>
+
+  {# Title #}
+  <span class="text-sm flex-1 truncate">{{ todo.title }}</span>
+
+  {# Labels (system-assigned, e.g. watch-pattern source) #}
+  {% for label in todo.labels %}
+  <span class="bg-blue-50 text-blue-400 text-xs px-1.5 py-0.5 rounded-full flex-shrink-0">{{ label }}</span>
+  {% endfor %}
+
+  {# Tags (user-applied) #}
+  {% for tag in todo.tags %}
+  <span class="bg-gray-100 text-gray-500 text-xs px-1.5 py-0.5 rounded-full flex-shrink-0">{{ tag }}</span>
+  {% endfor %}
+
+  {# Date #}
+  <span class="text-xs text-gray-300 flex-shrink-0">{{ todo.created_at | string | truncate(10, True, '') }}</span>
+
+  {# Edit toggle — reveals editors below #}
+  <details class="flex-shrink-0">
+    <summary class="text-xs text-gray-300 hover:text-blue-400 cursor-pointer list-none transition-colors" title="Edit">···</summary>
+    <div class="absolute z-10 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg p-3 w-72 space-y-2 right-4">
+
+      {# Tag editor #}
+      <form
+        hx-post="/todos/{{ todo.id }}/tags/htmx"
+        hx-target="#todo-{{ todo.id }}"
+        hx-swap="outerHTML"
+        class="flex gap-1">
+        <input
+          name="tags"
+          type="text"
+          value="{{ todo.tags | join(', ') }}"
+          placeholder="tag1, tag2"
+          class="text-xs border border-gray-200 rounded-lg px-2 py-1 flex-1 focus:outline-none focus:ring-1 focus:ring-blue-400" />
+        <button type="submit" class="text-xs bg-blue-50 text-blue-600 px-2 py-1 rounded-lg hover:bg-blue-100">Tags</button>
+      </form>
+
+      {# Label editor #}
+      <form
+        hx-post="/todos/{{ todo.id }}/labels/htmx"
+        hx-target="#todo-{{ todo.id }}"
+        hx-swap="outerHTML"
+        class="flex gap-1">
+        <input
+          name="labels"
+          type="text"
+          value="{{ todo.labels | join(', ') }}"
+          placeholder="label1, label2"
+          class="text-xs border border-blue-100 rounded-lg px-2 py-1 flex-1 focus:outline-none focus:ring-1 focus:ring-blue-400" />
+        <button type="submit" class="text-xs bg-blue-50 text-blue-600 px-2 py-1 rounded-lg hover:bg-blue-100">Labels</button>
+      </form>
+
+      {# Notes editor #}
+      <form
+        id="notes-form-{{ todo.id }}"
+        hx-post="/todos/{{ todo.id }}/notes/htmx"
+        hx-target="#todo-{{ todo.id }}"
+        hx-swap="outerHTML"
+        class="space-y-1">
+        <textarea
+          name="notes"
+          rows="3"
+          placeholder="Add a note…"
+          class="text-xs border border-gray-200 rounded-lg px-2 py-1 w-full resize-none focus:outline-none focus:ring-1 focus:ring-blue-400"
+          onkeydown="if(event.key==='Enter'&&(event.metaKey||event.ctrlKey)){event.preventDefault();this.closest('form').requestSubmit();}">{{ todo.notes or '' }}</textarea>
+        <div class="flex gap-1 justify-end">
+          <button
+            type="button"
+            onclick="this.closest('details').removeAttribute('open')"
+            class="text-xs text-gray-400 hover:text-gray-600 px-2 py-1 rounded-lg hover:bg-gray-50">Cancel</button>
+          <button type="submit" class="text-xs bg-blue-50 text-blue-600 px-2 py-1 rounded-lg hover:bg-blue-100">Save</button>
+        </div>
+      </form>
+
+      {# Delete #}
+      <div class="border-t border-gray-100 pt-2">
+        <button
+          hx-delete="/todos/{{ todo.id }}/htmx"
+          hx-target="#todo-{{ todo.id }}"
+          hx-swap="outerHTML"
+          hx-confirm="Delete this todo?"
+          class="text-xs text-red-400 hover:text-red-600 transition-colors">
+          Delete
+        </button>
+      </div>
+    </div>
+  </details>
+
+  </div>
+
+  {# Notes preview — first line only, expand for full text if multiline #}
+  {% if todo.notes %}
+  {% set first_line = todo.notes.split('\n')[0] %}
+  {% set is_multiline = '\n' in todo.notes %}
+  {% if is_multiline %}
+  <details class="ml-6 mt-1">
+    <summary class="text-xs text-gray-400 cursor-pointer list-none flex items-center gap-1 hover:text-gray-600">
+      <svg xmlns="http://www.w3.org/2000/svg" class="w-2.5 h-2.5 flex-shrink-0 transition-transform details-chevron" viewBox="0 0 20 20" fill="currentColor">
+        <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+      </svg>
+      <span>{{ first_line[:80] }}{% if first_line | length > 80 %}…{% endif %}</span>
+    </summary>
+    <p class="text-xs text-gray-400 mt-1 whitespace-pre-wrap">{{ todo.notes }}</p>
+  </details>
+  {% else %}
+  <p class="text-xs text-gray-400 mt-1 ml-6">{{ todo.notes[:80] }}{% if todo.notes | length > 80 %}…{% endif %}</p>
+  {% endif %}
+  {% endif %}
+
+</div>

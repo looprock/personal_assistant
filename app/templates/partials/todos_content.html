@@ -1,0 +1,59 @@
+{# Filterable todos content — rendered into #todos-content by the filter endpoint #}
+{% if filter_tag == "__untagged__" %}
+
+  {% if todos %}
+  <div class="bg-white rounded-2xl p-4 shadow-sm">
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="text-sm font-semibold text-gray-700">Untagged</h2>
+      <span class="bg-red-100 text-red-600 text-xs font-semibold px-2 py-0.5 rounded-full">{{ todos | length }}</span>
+    </div>
+    <div>{% for todo in todos %}{% include "partials/todo_row.html" %}{% endfor %}</div>
+  </div>
+  {% else %}
+  <p class="text-sm text-gray-400 text-center py-8 bg-white rounded-2xl shadow-sm">No untagged todos.</p>
+  {% endif %}
+
+{% elif filter_tag %}
+
+  {% if todos %}
+  <div class="bg-white rounded-2xl p-4 shadow-sm">
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="text-sm font-semibold text-gray-700"># {{ filter_tag }}</h2>
+      <span class="text-xs text-gray-400">{{ todos | length }}</span>
+    </div>
+    <div>{% for todo in todos %}{% include "partials/todo_row.html" %}{% endfor %}</div>
+  </div>
+  {% else %}
+  <p class="text-sm text-gray-400 text-center py-8 bg-white rounded-2xl shadow-sm">No todos tagged "{{ filter_tag }}".</p>
+  {% endif %}
+
+{% else %}
+
+  {# All — show both sections #}
+  {% if unprocessed_todos %}
+  <div class="bg-white rounded-2xl p-4 shadow-sm">
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="text-sm font-semibold text-gray-700">New / Unprocessed</h2>
+      <span class="bg-red-100 text-red-600 text-xs font-semibold px-2 py-0.5 rounded-full">{{ unprocessed_todos | length }}</span>
+    </div>
+    <div id="unprocessed-list">{% for todo in unprocessed_todos %}{% include "partials/todo_row.html" %}{% endfor %}</div>
+  </div>
+  {% else %}
+  <div id="unprocessed-list"></div>
+  {% endif %}
+
+  {% if active_todos %}
+  <div class="bg-white rounded-2xl p-4 shadow-sm">
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="text-sm font-semibold text-gray-700">Active</h2>
+      <span class="text-xs text-gray-400">{{ active_todos | length }}</span>
+    </div>
+    <div>{% for todo in active_todos %}{% include "partials/todo_row.html" %}{% endfor %}</div>
+  </div>
+  {% endif %}
+
+  {% if not unprocessed_todos and not active_todos %}
+  <p class="text-sm text-gray-400 text-center py-8 bg-white rounded-2xl shadow-sm">No todos yet.</p>
+  {% endif %}
+
+{% endif %}

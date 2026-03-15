@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Daily Digest</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #f5f5f7; margin: 0; padding: 0; color: #1d1d1f; }
+    .container { max-width: 600px; margin: 24px auto; background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
+    .header { background: #1d1d1f; color: #f5f5f7; padding: 24px 32px; }
+    .header h1 { margin: 0; font-size: 22px; font-weight: 600; }
+    .header p  { margin: 4px 0 0; font-size: 13px; opacity: 0.6; }
+    .section { padding: 20px 32px; border-bottom: 1px solid #e8e8ed; }
+    .section:last-child { border-bottom: none; }
+    .section h2 { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: #6e6e73; margin: 0 0 12px; }
+    .weather-row { display: flex; align-items: baseline; gap: 12px; }
+    .weather-temp { font-size: 36px; font-weight: 300; }
+    .weather-meta { font-size: 14px; color: #6e6e73; }
+    .stock-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; font-size: 14px; }
+    .stock-name { font-weight: 500; }
+    .stock-price { font-variant-numeric: tabular-nums; }
+    .change-pos { color: #34c759; }
+    .change-neg { color: #ff3b30; }
+    .item { padding: 8px 0; border-bottom: 1px solid #f2f2f7; font-size: 14px; }
+    .item:last-child { border-bottom: none; }
+    .item-title { font-weight: 500; margin-bottom: 2px; }
+    .item-meta  { font-size: 12px; color: #6e6e73; }
+    .tag { display: inline-block; background: #f2f2f7; border-radius: 4px; padding: 1px 6px; font-size: 11px; margin-right: 4px; }
+    a { color: #0071e3; text-decoration: none; }
+    .badge { display: inline-block; background: #ff3b30; color: #fff; border-radius: 10px; padding: 1px 7px; font-size: 11px; font-weight: 600; margin-left: 6px; }
+    .empty { font-size: 13px; color: #aeaeb2; font-style: italic; }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <div class="header">
+    <h1>Daily Digest</h1>
+    <p>{{ generated_at[:10] }}</p>
+  </div>
+
+  {# ── Weather ─────────────────────────────────────────────────────────── #}
+  {% if weather %}
+  <div class="section">
+    <h2>Weather — {{ weather.location }}</h2>
+    <div class="weather-row">
+      <div class="weather-temp">{{ weather.temperature_f | round(0) | int }}°F</div>
+      <div class="weather-meta">
+        {{ weather.condition }}<br>
+        {{ weather.temperature_c | round(1) }}°C &nbsp;·&nbsp;
+        Humidity {{ weather.humidity_pct }}% &nbsp;·&nbsp;
+        Wind {{ weather.wind_kph | round(0) | int }} km/h
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  {# ── Stocks ──────────────────────────────────────────────────────────── #}
+  {% if stocks %}
+  <div class="section">
+    <h2>Stocks</h2>
+    {% for s in stocks %}
+    <div class="stock-row">
+      <div>
+        <span class="stock-name">{{ s.ticker }}</span>
+        {% if s.name %}<span class="weather-meta"> · {{ s.name }}</span>{% endif %}
+      </div>
+      <div class="stock-price">
+        {{ s.currency }} {{ "%.2f"|format(s.price) }}
+        <span class="{{ 'change-pos' if s.change >= 0 else 'change-neg' }}">
+          {{ "+" if s.change >= 0 else "" }}{{ "%.2f"|format(s.change) }}
+          ({{ "+" if s.change_pct >= 0 else "" }}{{ "%.2f"|format(s.change_pct) }}%)
+        </span>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {# ── Calendar ─────────────────────────────────────────────────────────── #}
+  {% if calendar_events %}
+  <div class="section">
+    <h2>Today's Schedule</h2>
+    {% for e in calendar_events %}
+    <div class="item">
+      <div class="item-title">
+        {% if e.all_day %}
+        <span style="font-size:11px;color:#6e6e73;text-transform:uppercase;letter-spacing:0.05em;margin-right:6px;">All day</span>
+        {% else %}
+        <span style="font-size:11px;font-family:monospace;color:#6e6e73;margin-right:6px;">{{ e.start_display }}{% if e.end_display %} – {{ e.end_display }}{% endif %}</span>
+        {% endif %}
+        {{ e.title }}
+      </div>
+      {% if e.calendar_name %}<div class="item-meta">{{ e.calendar_name }}</div>{% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {# ── Unprocessed todos ───────────────────────────────────────────────── #}
+  {% if unprocessed_todos %}
+  <div class="section">
+    <h2>New / Unprocessed <span class="badge">{{ unprocessed_todos | length }}</span></h2>
+    {% for t in unprocessed_todos %}
+    <div class="item">
+      <div class="item-title">{{ t.title }}</div>
+      {% if t.body %}<div class="item-meta">{{ t.body[:120] }}{% if t.body|length > 120 %}…{% endif %}</div>{% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {# ── Active todo backlog ─────────────────────────────────────────────── #}
+  {% if active_todos %}
+  <div class="section">
+    <h2>Active Todos</h2>
+    {% for t in active_todos %}
+    <div class="item">
+      <div class="item-title">{{ t.title }}</div>
+      <div class="item-meta">
+        {% for tag in t.tags %}<span class="tag">{{ tag }}</span>{% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {# ── Jira tickets ────────────────────────────────────────────────────── #}
+  {% if jira_tickets %}
+  <div class="section">
+    <h2>Stale Jira Tickets</h2>
+    {% for t in jira_tickets %}
+    <div class="item">
+      <div class="item-title">
+        <a href="{{ t.url }}">{{ t.key }}</a> — {{ t.title }}
+      </div>
+      <div class="item-meta">{{ t.status }}</div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {# ── Unanswered emails ───────────────────────────────────────────────── #}
+  {% set all_emails = unanswered_icloud + unanswered_gmail %}
+  {% if all_emails %}
+  <div class="section">
+    <h2>Unanswered Emails <span class="badge">{{ all_emails | length }}</span></h2>
+    {% for e in all_emails %}
+    <div class="item">
+      <div class="item-title">{{ e.subject }}</div>
+      <div class="item-meta">From {{ e.sender }} &nbsp;·&nbsp; {{ e.date[:10] }}{% if e.account %} &nbsp;·&nbsp; {{ e.account }}{% endif %}</div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {# ── Slack mentions ──────────────────────────────────────────────────── #}
+  {% if slack_mentions %}
+  <div class="section">
+    <h2>Unanswered Slack Mentions <span class="badge">{{ slack_mentions | length }}</span></h2>
+    {% for m in slack_mentions %}
+    <div class="item">
+      <div class="item-title">
+        {% if m.permalink %}<a href="{{ m.permalink }}">{{ m.text[:80] }}{% if m.text|length > 80 %}…{% endif %}</a>
+        {% else %}{{ m.text[:80] }}{% if m.text|length > 80 %}…{% endif %}{% endif %}
+      </div>
+      <div class="item-meta">{{ m.sender }} in #{{ m.channel }}</div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% if not (weather or stocks or calendar_events or unprocessed_todos or active_todos or jira_tickets or unanswered_icloud or unanswered_gmail or slack_mentions) %}
+  <div class="section">
+    <p class="empty">Nothing to report today. Enjoy your day!</p>
+  </div>
+  {% endif %}
+
+</div>
+</body>
+</html>

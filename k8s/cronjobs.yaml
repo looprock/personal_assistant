@@ -1,0 +1,62 @@
+---
+# Digest job — runs at 8am UTC daily
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: digest-job
+  namespace: personal-assistant
+spec:
+  schedule: "0 8 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: digest
+              image: your-registry/personal-assistant:latest
+              command: ["python", "-m", "jobs.digest_runner"]
+              envFrom:
+                - secretRef:
+                    name: personal-assistant-secrets
+              resources:
+                requests:
+                  cpu: 100m
+                  memory: 256Mi
+                limits:
+                  cpu: 1000m
+                  memory: 512Mi
+---
+# Email watcher — runs every 10 minutes
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: email-watcher
+  namespace: personal-assistant
+spec:
+  schedule: "*/10 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: watcher
+              image: your-registry/personal-assistant:latest
+              command: ["python", "-m", "jobs.email_watcher"]
+              envFrom:
+                - secretRef:
+                    name: personal-assistant-secrets
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 128Mi
+                limits:
+                  cpu: 200m
+                  memory: 256Mi

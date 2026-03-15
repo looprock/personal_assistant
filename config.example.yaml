@@ -1,0 +1,100 @@
+# Personal Assistant — example configuration
+#
+# Copy this file to config.yaml and fill in your values.
+# All options here can also be set via environment variables (see CLAUDE.md).
+# Env vars always take precedence over values in this file.
+#
+# DO NOT put secrets in this file (passwords, tokens, API keys).
+# Those belong in environment variables or k8s Secrets only.
+
+# ── iCloud Mail ───────────────────────────────────────────────────────────────
+icloud:
+  # Your iCloud login address (used as the IMAP username).
+  username: you@icloud.com
+
+  # Every address you send from in Mail.app on iOS/macOS.
+  # Emails where FROM matches any of these are treated as self-sent todos
+  # and archived to Archived_Todos after ingestion.
+  # Env var override: PA_ICLOUD_SELF_ADDRESSES (comma-separated)
+  self_addresses:
+    - you@icloud.com
+    - alias@icloud.com          # iCloud email alias
+    - you@customdomain.com      # any "Send As" address tied to this account
+
+  # Optional: regex patterns matched against the FROM address of INBOX emails.
+  # Matching emails are ingested as todos but NOT archived — they stay in your inbox.
+  # Useful for notification senders whose address varies (e.g. school platforms).
+  # Env var override: PA_ICLOUD_WATCH_PATTERNS (comma-separated)
+  # watch_patterns:
+  #   - ".*@parentsquare\\.com"   # any address from parentsquare.com
+  #   - "noreply@school\\.edu"    # exact address (no regex needed if no wildcards)
+
+# ── Gmail accounts ────────────────────────────────────────────────────────────
+# Each entry references an env var that holds a Gmail OAuth2 credentials JSON
+# blob (with client_id, client_secret, refresh_token, and email fields).
+# Omit this section entirely to disable Gmail scanning.
+# Env var override: PA_GMAIL_CREDENTIALS_ENVS (comma-separated env var names)
+gmail:
+  accounts:
+    - credentials_env: GMAIL_OAUTH_CREDS_WORK     # env var holding OAuth JSON for work account
+    - credentials_env: GMAIL_OAUTH_CREDS_PERSONAL # env var holding OAuth JSON for personal Gmail
+
+# ── Daily digest ──────────────────────────────────────────────────────────────
+digest:
+  # Where to send the digest email.
+  # Env var: PA_DIGEST_RECIPIENT
+  recipient: you@icloud.com
+
+  # Cron schedule for the digest CronJob (UTC).
+  # Default: 8am UTC daily. Adjust for your timezone offset.
+  # Env var: PA_DIGEST_SCHEDULE
+  schedule: "0 8 * * *"
+
+  # Optional: only include active todos with these tags in the digest.
+  # Leave empty (or omit) to include all active (tagged) todos.
+  # Env var: PA_DIGEST_INCLUDE_TAGS (comma-separated)
+  include_tags: []
+  # include_tags:
+  #   - work
+  #   - urgent
+
+# ── Weather ───────────────────────────────────────────────────────────────────
+weather:
+  # Location string passed to Open-Meteo's geocoding API.
+  # Use "City, Country" or "City, State, Country" for best results.
+  # Env var: PA_WEATHER_LOCATION
+  location: "Austin, US"
+
+# ── Jira (optional) ───────────────────────────────────────────────────────────
+# All Jira credentials are secrets — set via env vars only (PA_JIRA_URL,
+# PA_JIRA_EMAIL, PA_JIRA_API_TOKEN). The option below is non-secret.
+#
+# Set to true only if your team uses sprints and you want to exclude the
+# product backlog (unsprinted tickets) from the digest. Defaults to false.
+# Env var: PA_JIRA_REQUIRE_SPRINT
+# jira:
+#   require_sprint: false
+
+# ── Web UI ────────────────────────────────────────────────────────────────────
+ui:
+  # Login username for the web UI. Password is set via PA_UI_PASSWORD env var only.
+  # Env var: PA_UI_USERNAME
+  username: admin
+
+# ── SMTP ──────────────────────────────────────────────────────────────────────
+smtp:
+  # SMTP server for sending the digest email.
+  # Password is set via PA_SMTP_PASSWORD env var only.
+  # Env vars: PA_SMTP_HOST, PA_SMTP_PORT, PA_SMTP_USER
+  host: smtp.gmail.com
+  port: 587
+  user: you@gmail.com
+
+# ── Stock prices ──────────────────────────────────────────────────────────────
+stocks:
+  # Yahoo Finance ticker symbols. All tickers appear in both the digest email
+  # and the web UI dashboard. Add or remove tickers freely.
+  # Env var: PA_STOCKS_TICKERS (comma-separated)
+  tickers:
+    - LIFE    # Ethos Technologies Inc
+    - AAPL    # Apple Inc (example)

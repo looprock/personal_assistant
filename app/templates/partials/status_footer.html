@@ -1,0 +1,15 @@
+{# System status footer dots #}
+<div class="flex justify-center gap-4 pb-2">
+  {% for job in job_health %}
+  <div class="flex items-center gap-1.5 text-xs text-gray-400">
+    <span class="w-1.5 h-1.5 rounded-full
+      {{ 'bg-green-400' if job.freshness == 'ok'
+         else 'bg-yellow-400' if job.freshness == 'warn'
+         else 'bg-red-400' }}">
+    </span>
+    {{ job.label }} · {{ job.last_run_display }}
+  </div>
+  {% else %}
+  <p class="text-xs text-gray-300">No job runs recorded yet</p>
+  {% endfor %}
+</div>

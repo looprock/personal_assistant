@@ -1,0 +1,30 @@
+{% if slack_mentions %}
+<div class="space-y-0">
+  {% for m in slack_mentions %}
+  <div id="slack-{{ m.message_ts | replace('.', '-') }}"
+       class="flex items-start gap-3 py-3 border-b border-gray-100 last:border-0">
+    <div class="flex-1 min-w-0">
+      {% if m.permalink %}
+      <a href="{{ m.permalink }}" target="_blank"
+         class="text-sm font-medium text-blue-600 hover:underline line-clamp-2">
+        {{ m.text[:120] }}{% if m.text | length > 120 %}…{% endif %}
+      </a>
+      {% else %}
+      <p class="text-sm font-medium line-clamp-2">{{ m.text[:120] }}{% if m.text | length > 120 %}…{% endif %}</p>
+      {% endif %}
+      <p class="text-xs text-gray-400 mt-0.5">{{ m.sender }} in #{{ m.channel_name }}</p>
+    </div>
+    <button
+      hx-post="/slack/ignore/{{ m.message_ts }}"
+      hx-target="#slack-{{ m.message_ts | replace('.', '-') }}"
+      hx-swap="outerHTML"
+      class="flex-shrink-0 text-xs text-gray-300 hover:text-red-400 transition-colors mt-0.5"
+      title="Dismiss">
+      Dismiss
+    </button>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<p class="text-sm text-gray-400 text-center py-4">No mentions found.</p>
+{% endif %}
