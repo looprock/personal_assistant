@@ -1,7 +1,7 @@
 # Personal Assistant
 
 A personal assistant that:
-1. Delivers a daily 8am email digest summarizing work, todos, and communications
+1. Delivers an email digest at 7am and 2pm summarizing work, todos, and communications
 2. Provides a mobile-friendly web UI for managing personal todos
 3. Automatically ingests self-sent emails as todos
 
@@ -231,7 +231,7 @@ launchctl load ~/Library/LaunchAgents/com.personalassistant.ui.plist
 
 Create two plist files in `~/Library/LaunchAgents/`:
 
-**`~/Library/LaunchAgents/com.personalassistant.digest.plist`** — runs the digest daily at 8am:
+**`~/Library/LaunchAgents/com.personalassistant.digest.plist`** — runs the digest at 7am and 2pm:
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
@@ -246,10 +246,16 @@ Create two plist files in `~/Library/LaunchAgents/`:
     <string>jobs.digest_runner</string>
   </array>
   <key>StartCalendarInterval</key>
-  <dict>
-    <key>Hour</key>   <integer>8</integer>
-    <key>Minute</key> <integer>0</integer>
-  </dict>
+  <array>
+    <dict>
+      <key>Hour</key>   <integer>7</integer>
+      <key>Minute</key> <integer>0</integer>
+    </dict>
+    <dict>
+      <key>Hour</key>   <integer>14</integer>
+      <key>Minute</key> <integer>0</integer>
+    </dict>
+  </array>
   <key>StandardOutPath</key> <string>/tmp/pa-digest.log</string>
   <key>StandardErrorPath</key><string>/tmp/pa-digest.log</string>
 </dict>
@@ -306,7 +312,7 @@ crontab -e
 
 Add these lines (adjust paths):
 ```
-0 8 * * *   /bin/bash /Users/YOU/pa-run.sh jobs.digest_runner >> /tmp/pa-digest.log 2>&1
+0 7,14 * * * /bin/bash /Users/YOU/pa-run.sh jobs.digest_runner >> /tmp/pa-digest.log 2>&1
 */10 * * * * /bin/bash /Users/YOU/pa-run.sh jobs.email_watcher >> /tmp/pa-emailwatcher.log 2>&1
 ```
 

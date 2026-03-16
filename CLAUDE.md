@@ -44,7 +44,7 @@ uv run mypy app
 - Web UI shows `jira_tickets` cache alongside personal todos, with direct links to each ticket; Jira section is hidden if no cached tickets exist (i.e. Jira not configured or digest hasn't run yet)
 - Web UI displays weather and stock prices from the `snapshots` table; sections are hidden if `snapshots` is empty (digest hasn't run yet). Stocks shown are driven by `config.yaml` tickers — no hardcoded symbols.
 
-**`digest-job`** — k3s CronJob (runs at 8am daily)
+**`digest-job`** — k3s CronJob (runs at 7am and 2pm daily)
 - Aggregates all sources via Claude API
 - Renders and sends HTML email digest
 - Truncates and repopulates `jira_tickets` table with flagged tickets from the current run
@@ -231,8 +231,7 @@ All config is available via environment variables. `config.yaml` is optional and
 | `icloud.watch_patterns` | `PA_ICLOUD_WATCH_PATTERNS` | comma-separated regex patterns; INBOX emails FROM matching addresses are ingested as todos but NOT archived (e.g. `.*@parentsquare\\.com`) |
 | `gmail.accounts[*].credentials_env` | `PA_GMAIL_CREDENTIALS_ENVS` | comma-separated list of env var names holding OAuth JSON |
 | `digest.recipient` | `PA_DIGEST_RECIPIENT` | |
-| `digest.schedule` | `PA_DIGEST_SCHEDULE` | cron expression, default `0 8 * * *` |
-| `digest.include_tags` | `PA_DIGEST_INCLUDE_TAGS` | comma-separated; if set, only active todos with these tags appear in the digest |
+| `digest.schedule` | `PA_DIGEST_SCHEDULE` | cron expression, default `0 7,14 * * *` |
 | `weather.location` | `PA_WEATHER_LOCATION` | e.g. `"Austin, US"` |
 | `stocks.tickers` | `PA_STOCKS_TICKERS` | comma-separated, e.g. `LIFE,AAPL` |
 

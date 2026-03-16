@@ -110,21 +110,6 @@
   </div>
   {% endif %}
 
-  {# ── Active todo backlog ─────────────────────────────────────────────── #}
-  {% if active_todos %}
-  <div class="section">
-    <h2>Active Todos</h2>
-    {% for t in active_todos %}
-    <div class="item">
-      <div class="item-title">{{ t.title }}</div>
-      <div class="item-meta">
-        {% for tag in t.tags %}<span class="tag">{{ tag }}</span>{% endfor %}
-      </div>
-    </div>
-    {% endfor %}
-  </div>
-  {% endif %}
-
   {# ── Jira tickets ────────────────────────────────────────────────────── #}
   {% if jira_tickets %}
   <div class="section">
@@ -170,7 +155,7 @@
   </div>
   {% endif %}
 
-  {% if not (weather or stocks or calendar_events or unprocessed_todos or active_todos or jira_tickets or unanswered_icloud or unanswered_gmail or slack_mentions) %}
+  {% if not (weather or stocks or calendar_events or unprocessed_todos or jira_tickets or unanswered_icloud or unanswered_gmail or slack_mentions) %}
   <div class="section">
     <p class="empty">Nothing to report today. Enjoy your day!</p>
   </div>

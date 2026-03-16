@@ -167,31 +167,14 @@ async def run(dry_run: bool = False) -> dict[str, Any]:
         log.warning("  email ingestion failed (non-fatal): %s", exc)
 
     # ── Fetch todos from DB ──────────────────────────────────────────────────
-    log.info("Querying todos from DB (include_tags filter: %s)…",
-             cfg.digest.include_tags if cfg.digest.include_tags else "none — all active")
+    log.info("Querying unprocessed todos from DB…")
     async with pool().acquire() as conn:
         unprocessed_todos = await conn.fetch(
             "SELECT id, title, body, notes, tags, created_at FROM todos "
             "WHERE completed_at IS NULL AND tags = '{}' ORDER BY created_at DESC"
         )
-        if cfg.digest.include_tags:
-            active_todos = await conn.fetch(
-                "SELECT id, title, body, notes, tags, created_at FROM todos "
-                "WHERE completed_at IS NULL AND tags != '{}' "
-                "AND tags && $1::text[] "
-                "AND (snoozed_until IS NULL OR snoozed_until < NOW()) "
-                "ORDER BY created_at DESC",
-                cfg.digest.include_tags,
-            )
-        else:
-            active_todos = await conn.fetch(
-                "SELECT id, title, body, notes, tags, created_at FROM todos "
-                "WHERE completed_at IS NULL AND tags != '{}' "
-                "AND (snoozed_until IS NULL OR snoozed_until < NOW()) "
-                "ORDER BY created_at DESC"
-            )
 
-        log.info("  unprocessed todos: %d, active todos: %d", len(unprocessed_todos), len(active_todos))
+        log.info("  unprocessed todos: %d", len(unprocessed_todos))
 
         # ── Persist snapshots ────────────────────────────────────────────────
         if isinstance(weather_data, WeatherData):
@@ -231,7 +214,6 @@ async def run(dry_run: bool = False) -> dict[str, Any]:
             for e in calendar_events
         ] if isinstance(calendar_events, list) else [],
         "unprocessed_todos": [dict(r) for r in unprocessed_todos],
-        "active_todos": [dict(r) for r in active_todos],
         "jira_tickets": (
             [{"key": t.key, "title": t.title, "status": t.status, "url": t.url} for t in jira_tickets]
             if isinstance(jira_tickets, list) else []
