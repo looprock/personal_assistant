@@ -1,5 +1,19 @@
 {# Filterable todos content — rendered into #todos-content by the filter endpoint #}
-{% if filter_tag == "__untagged__" %}
+{% if filter_label %}
+
+  {% if todos %}
+  <div class="bg-white rounded-2xl p-4 shadow-sm">
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="text-sm font-semibold text-gray-700">label:{{ filter_label }}</h2>
+      <span class="text-xs text-gray-400">{{ todos | length }}</span>
+    </div>
+    <div>{% for todo in todos %}{% include "partials/todo_row.html" %}{% endfor %}</div>
+  </div>
+  {% else %}
+  <p class="text-sm text-gray-400 text-center py-8 bg-white rounded-2xl shadow-sm">No todos with label "{{ filter_label }}".</p>
+  {% endif %}
+
+{% elif filter_tag == "__untagged__" %}
 
   {% if todos %}
   <div class="bg-white rounded-2xl p-4 shadow-sm">

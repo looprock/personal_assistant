@@ -143,30 +143,38 @@ async def search_todos_htmx(request: Request, q: str = ""):
             )]
 
     return templates.TemplateResponse("partials/todos_content.html", {
-        "request": request, "filter_tag": "",
+        "request": request, "filter_tag": "", "filter_label": "",
         "todos": [], "unprocessed_todos": unprocessed, "active_todos": active,
     })
 
 
 @router.get("/filter/htmx", response_class=HTMLResponse)
-async def filter_todos_htmx(request: Request, tag: str = ""):
+async def filter_todos_htmx(request: Request, tag: str = "", label: str = ""):
     """Return filtered todos_content partial for HTMX swap into #todos-content."""
     async with pool().acquire() as conn:
-        if tag == "__untagged__":
+        if label:
+            todos = [dict(r) for r in await conn.fetch(
+                "SELECT * FROM todos WHERE completed_at IS NULL AND $1 = ANY(labels) "
+                "ORDER BY created_at DESC",
+                label,
+            )]
+            ctx = {"request": request, "filter_tag": "", "filter_label": label,
+                   "todos": todos, "unprocessed_todos": [], "active_todos": []}
+        elif tag == "__untagged__":
             todos = [dict(r) for r in await conn.fetch(
                 "SELECT * FROM todos WHERE completed_at IS NULL AND tags = '{}' "
                 "ORDER BY created_at DESC"
             )]
-            ctx = {"request": request, "filter_tag": tag, "todos": todos,
-                   "unprocessed_todos": [], "active_todos": []}
+            ctx = {"request": request, "filter_tag": tag, "filter_label": "",
+                   "todos": todos, "unprocessed_todos": [], "active_todos": []}
         elif tag:
             todos = [dict(r) for r in await conn.fetch(
                 "SELECT * FROM todos WHERE completed_at IS NULL AND $1 = ANY(tags) "
                 "AND (snoozed_until IS NULL OR snoozed_until < NOW()) ORDER BY created_at DESC",
                 tag,
             )]
-            ctx = {"request": request, "filter_tag": tag, "todos": todos,
-                   "unprocessed_todos": [], "active_todos": []}
+            ctx = {"request": request, "filter_tag": tag, "filter_label": "",
+                   "todos": todos, "unprocessed_todos": [], "active_todos": []}
         else:
             unprocessed = [dict(r) for r in await conn.fetch(
                 "SELECT * FROM todos WHERE completed_at IS NULL AND tags = '{}' "
@@ -176,7 +184,7 @@ async def filter_todos_htmx(request: Request, tag: str = ""):
                 "SELECT * FROM todos WHERE completed_at IS NULL AND tags != '{}' "
                 "AND (snoozed_until IS NULL OR snoozed_until < NOW()) ORDER BY created_at DESC"
             )]
-            ctx = {"request": request, "filter_tag": "", "todos": [],
+            ctx = {"request": request, "filter_tag": "", "filter_label": "", "todos": [],
                    "unprocessed_todos": unprocessed, "active_todos": active}
 
     return templates.TemplateResponse("partials/todos_content.html", ctx)
