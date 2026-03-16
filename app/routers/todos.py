@@ -11,15 +11,12 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates
-from pathlib import Path
-
 from app.auth import require_auth
 from app.db import pool
 from app.models import TodoCreate, TodoUpdate
+from app.templating import templates
 
 router = APIRouter(prefix="/todos", tags=["todos"], dependencies=[Depends(require_auth)])
-templates = Jinja2Templates(directory=str(Path(__file__).parent.parent / "templates"))
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -210,10 +207,12 @@ async def update_tags_htmx(request: Request, todo_id: UUID):
             tags,
         )
 
-    return templates.TemplateResponse(
+    response = templates.TemplateResponse(
         "partials/todo_row.html",
-        {"request": request, "todo": dict(row)},
+        {"request": request, "todo": dict(row), "keep_open": True},
     )
+    response.headers["HX-Trigger"] = "todosChanged"
+    return response
 
 
 @router.post("/{todo_id}/labels/htmx", response_class=HTMLResponse)
@@ -230,8 +229,20 @@ async def update_labels_htmx(request: Request, todo_id: UUID):
             labels,
         )
 
-    return templates.TemplateResponse(
+    response = templates.TemplateResponse(
         "partials/todo_row.html",
+        {"request": request, "todo": dict(row), "keep_open": True},
+    )
+    response.headers["HX-Trigger"] = "todosChanged"
+    return response
+
+
+@router.get("/{todo_id}/edit-panel/htmx", response_class=HTMLResponse)
+async def edit_panel_htmx(request: Request, todo_id: UUID):
+    """Return the edit panel fragment (lazy-loaded when the user opens ···)."""
+    row = await _get_todo_or_404(todo_id)
+    return templates.TemplateResponse(
+        "partials/todo_edit_panel.html",
         {"request": request, "todo": dict(row)},
     )
 
@@ -247,9 +258,16 @@ async def delete_todo_htmx(todo_id: UUID):
 
 @router.post("/{todo_id}/notes/htmx", response_class=HTMLResponse)
 async def update_notes_htmx(request: Request, todo_id: UUID):
-    """Update notes from a form submission and return the updated todo row fragment."""
+    """Update notes from a form submission and return the updated todo row fragment.
+    Empty submission is a no-op (preserves existing notes since the textarea starts blank)."""
     form = await request.form()
-    notes = form.get("notes", "") or None
+    notes = (form.get("notes") or "").strip()
+    if not notes:
+        row = await _get_todo_or_404(todo_id)
+        return templates.TemplateResponse(
+            "partials/todo_row.html",
+            {"request": request, "todo": dict(row), "keep_open": True},
+        )
 
     async with pool().acquire() as conn:
         row = await conn.fetchrow(
@@ -260,5 +278,26 @@ async def update_notes_htmx(request: Request, todo_id: UUID):
 
     return templates.TemplateResponse(
         "partials/todo_row.html",
-        {"request": request, "todo": dict(row)},
+        {"request": request, "todo": dict(row), "keep_open": True},
+    )
+
+
+@router.post("/{todo_id}/title/htmx", response_class=HTMLResponse)
+async def update_title_htmx(request: Request, todo_id: UUID):
+    """Update title from a form submission and return the updated todo row fragment."""
+    form = await request.form()
+    title = (form.get("title") or "").strip()
+    if not title:
+        return HTMLResponse("")
+
+    async with pool().acquire() as conn:
+        row = await conn.fetchrow(
+            "UPDATE todos SET title = $2 WHERE id = $1 RETURNING *",
+            todo_id,
+            title,
+        )
+
+    return templates.TemplateResponse(
+        "partials/todo_row.html",
+        {"request": request, "todo": dict(row), "keep_open": True},
     )

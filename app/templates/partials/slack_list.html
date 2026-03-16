@@ -12,7 +12,7 @@
       {% else %}
       <p class="text-sm font-medium line-clamp-2">{{ m.text[:120] }}{% if m.text | length > 120 %}…{% endif %}</p>
       {% endif %}
-      <p class="text-xs text-gray-400 mt-0.5">{{ m.sender }} in #{{ m.channel_name }}</p>
+      <p class="text-xs text-gray-400 mt-0.5">{{ m.sender }} in #{{ m.channel_name }}{% if m.message_ts %} · {{ m.message_ts | slack_ts_date }}{% endif %}</p>
     </div>
     <button
       hx-post="/slack/ignore/{{ m.message_ts }}"

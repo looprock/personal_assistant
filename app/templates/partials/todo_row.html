@@ -14,7 +14,7 @@
   {# Title #}
   <span class="text-sm flex-1 truncate">{{ todo.title }}</span>
 
-  {# Labels (system-assigned, e.g. watch-pattern source) #}
+  {# Labels (system-assigned) #}
   {% for label in todo.labels %}
   <span class="bg-blue-50 text-blue-400 text-xs px-1.5 py-0.5 rounded-full flex-shrink-0">{{ label }}</span>
   {% endfor %}
@@ -27,71 +27,58 @@
   {# Date #}
   <span class="text-xs text-gray-300 flex-shrink-0">{{ todo.created_at | string | truncate(10, True, '') }}</span>
 
-  {# Edit toggle — reveals editors below #}
-  <details class="flex-shrink-0">
+  {# Edit toggle #}
+  <details class="flex-shrink-0"{% if keep_open %} open{% endif %}>
     <summary class="text-xs text-gray-300 hover:text-blue-400 cursor-pointer list-none transition-colors" title="Edit">···</summary>
     <div class="absolute z-10 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg p-3 w-72 space-y-2 right-4">
 
+      {# Title editor #}
+      <form hx-post="/todos/{{ todo.id }}/title/htmx"
+            hx-target="#todo-{{ todo.id }}" hx-swap="outerHTML"
+            class="flex gap-1">
+        <input name="title" type="text" value="{{ todo.title }}" required
+               class="text-xs border border-gray-200 rounded-lg px-2 py-1 flex-1 focus:outline-none focus:ring-1 focus:ring-blue-400" />
+        <button type="submit" class="text-xs bg-blue-50 text-blue-600 px-2 py-1 rounded-lg hover:bg-blue-100">Title</button>
+      </form>
+
       {# Tag editor #}
-      <form
-        hx-post="/todos/{{ todo.id }}/tags/htmx"
-        hx-target="#todo-{{ todo.id }}"
-        hx-swap="outerHTML"
-        class="flex gap-1">
-        <input
-          name="tags"
-          type="text"
-          value="{{ todo.tags | join(', ') }}"
-          placeholder="tag1, tag2"
-          class="text-xs border border-gray-200 rounded-lg px-2 py-1 flex-1 focus:outline-none focus:ring-1 focus:ring-blue-400" />
+      <form hx-post="/todos/{{ todo.id }}/tags/htmx"
+            hx-target="#todo-{{ todo.id }}" hx-swap="outerHTML"
+            class="flex gap-1">
+        <input name="tags" type="text" value="{{ todo.tags | join(', ') }}" placeholder="tag1, tag2"
+               class="text-xs border border-gray-200 rounded-lg px-2 py-1 flex-1 focus:outline-none focus:ring-1 focus:ring-blue-400" />
         <button type="submit" class="text-xs bg-blue-50 text-blue-600 px-2 py-1 rounded-lg hover:bg-blue-100">Tags</button>
       </form>
 
       {# Label editor #}
-      <form
-        hx-post="/todos/{{ todo.id }}/labels/htmx"
-        hx-target="#todo-{{ todo.id }}"
-        hx-swap="outerHTML"
-        class="flex gap-1">
-        <input
-          name="labels"
-          type="text"
-          value="{{ todo.labels | join(', ') }}"
-          placeholder="label1, label2"
-          class="text-xs border border-blue-100 rounded-lg px-2 py-1 flex-1 focus:outline-none focus:ring-1 focus:ring-blue-400" />
+      <form hx-post="/todos/{{ todo.id }}/labels/htmx"
+            hx-target="#todo-{{ todo.id }}" hx-swap="outerHTML"
+            class="flex gap-1">
+        <input name="labels" type="text" value="{{ todo.labels | join(', ') }}" placeholder="label1, label2"
+               class="text-xs border border-blue-100 rounded-lg px-2 py-1 flex-1 focus:outline-none focus:ring-1 focus:ring-blue-400" />
         <button type="submit" class="text-xs bg-blue-50 text-blue-600 px-2 py-1 rounded-lg hover:bg-blue-100">Labels</button>
       </form>
 
-      {# Notes editor #}
-      <form
-        id="notes-form-{{ todo.id }}"
-        hx-post="/todos/{{ todo.id }}/notes/htmx"
-        hx-target="#todo-{{ todo.id }}"
-        hx-swap="outerHTML"
-        class="space-y-1">
-        <textarea
-          name="notes"
-          rows="3"
-          placeholder="Add a note…"
-          class="text-xs border border-gray-200 rounded-lg px-2 py-1 w-full resize-none focus:outline-none focus:ring-1 focus:ring-blue-400"
-          onkeydown="if(event.key==='Enter'&&(event.metaKey||event.ctrlKey)){event.preventDefault();this.closest('form').requestSubmit();}">{{ todo.notes or '' }}</textarea>
+      {# Notes editor — textarea starts empty; existing notes visible in the preview below #}
+      <form hx-post="/todos/{{ todo.id }}/notes/htmx"
+            hx-target="#todo-{{ todo.id }}" hx-swap="outerHTML"
+            class="space-y-1">
+        <textarea name="notes" rows="3" placeholder="Add a note… (existing notes shown below)"
+                  class="text-xs border border-gray-200 rounded-lg px-2 py-1 w-full resize-none focus:outline-none focus:ring-1 focus:ring-blue-400"
+                  onkeydown="if(event.key==='Enter'&&(event.metaKey||event.ctrlKey)){event.preventDefault();this.closest('form').requestSubmit();}"></textarea>
         <div class="flex gap-1 justify-end">
-          <button
-            type="button"
-            onclick="this.closest('details').removeAttribute('open')"
-            class="text-xs text-gray-400 hover:text-gray-600 px-2 py-1 rounded-lg hover:bg-gray-50">Cancel</button>
+          <button type="button" onclick="this.closest('details').removeAttribute('open')"
+                  class="text-xs text-gray-400 hover:text-gray-600 px-2 py-1 rounded-lg hover:bg-gray-50">Cancel</button>
           <button type="submit" class="text-xs bg-blue-50 text-blue-600 px-2 py-1 rounded-lg hover:bg-blue-100">Save</button>
         </div>
       </form>
 
       {# Delete #}
       <div class="border-t border-gray-100 pt-2">
-        <button
-          hx-delete="/todos/{{ todo.id }}/htmx"
-          hx-target="#todo-{{ todo.id }}"
-          hx-swap="outerHTML"
-          hx-confirm="Delete this todo?"
-          class="text-xs text-red-400 hover:text-red-600 transition-colors">
+        <button hx-delete="/todos/{{ todo.id }}/htmx"
+                hx-target="#todo-{{ todo.id }}" hx-swap="outerHTML"
+                hx-confirm="Delete this todo?"
+                class="text-xs text-red-400 hover:text-red-600 transition-colors">
           Delete
         </button>
       </div>
@@ -100,11 +87,10 @@
 
   </div>
 
-  {# Notes preview — first line only, expand for full text if multiline #}
+  {# Notes preview — first line only; expand for full text #}
   {% if todo.notes %}
   {% set first_line = todo.notes.split('\n')[0] %}
-  {% set is_multiline = '\n' in todo.notes %}
-  {% if is_multiline %}
+  {% if '\n' in todo.notes %}
   <details class="ml-6 mt-1">
     <summary class="text-xs text-gray-400 cursor-pointer list-none flex items-center gap-1 hover:text-gray-600">
       <svg xmlns="http://www.w3.org/2000/svg" class="w-2.5 h-2.5 flex-shrink-0 transition-transform details-chevron" viewBox="0 0 20 20" fill="currentColor">

@@ -67,7 +67,10 @@
   </div>
 
   {# ── Filterable todos ─────────────────────────────────────────────────── #}
-  <div id="todos-content" class="space-y-4">
+  <div id="todos-content" class="space-y-4"
+       hx-get="/todos/filter/htmx"
+       hx-trigger="todosChanged from:body"
+       hx-swap="innerHTML">
     {% set filter_tag = "" %}
     {% include "partials/todos_content.html" %}
   </div>

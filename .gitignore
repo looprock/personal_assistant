@@ -3,3 +3,5 @@ secrets*
 *secret*
 .venv
 .*_cache
+.playwright-mcp
+*__pycache__

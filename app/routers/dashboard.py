@@ -6,11 +6,9 @@ Dashboard routes — one per tab: /todos, /jira, /slack.
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates
 
 import os
 
@@ -19,9 +17,9 @@ from app.db import pool
 from app import job_status
 from app.integrations import calendar as calendar_mod
 from app import config as cfg_module
+from app.templating import templates
 
 router = APIRouter(tags=["dashboard"], dependencies=[Depends(require_auth)])
-templates = Jinja2Templates(directory=str(Path(__file__).parent.parent / "templates"))
 cfg = cfg_module.cfg
 
 

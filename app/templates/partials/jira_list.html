@@ -7,6 +7,9 @@
        class="text-sm font-medium text-blue-600 hover:underline flex-shrink-0">{{ t.ticket_key }}</a>
     <span class="text-sm text-gray-700 truncate flex-1">{{ t.title }}</span>
     <span class="text-xs text-gray-400 flex-shrink-0">{{ t.status }}</span>
+    {% if t.last_activity %}
+    <span class="text-xs text-gray-300 flex-shrink-0" title="Last activity">{{ t.last_activity | string | truncate(10, True, '') }}</span>
+    {% endif %}
     <button
       hx-post="/jira/dismiss/{{ t.ticket_key }}"
       hx-target="#jira-{{ t.ticket_key | replace('-', '_') }}"

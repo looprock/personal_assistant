@@ -10,14 +10,12 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates
-from pathlib import Path
 
 from app.auth import require_auth
 from app.db import pool
+from app.templating import templates
 
 router = APIRouter(prefix="/slack", tags=["slack"], dependencies=[Depends(require_auth)])
-templates = Jinja2Templates(directory=str(Path(__file__).parent.parent / "templates"))
 
 
 @router.get("/search/htmx", response_class=HTMLResponse)

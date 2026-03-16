@@ -1,0 +1,79 @@
+{# Edit panel content — lazy-loaded when the user opens the ··· menu #}
+
+{# Tag editor #}
+<form
+  hx-post="/todos/{{ todo.id }}/tags/htmx"
+  hx-target="#todo-{{ todo.id }}"
+  hx-swap="outerHTML"
+  class="flex gap-1">
+  <input
+    name="tags"
+    type="text"
+    value="{{ todo.tags | join(', ') }}"
+    placeholder="tag1, tag2"
+    class="text-xs border border-gray-200 rounded-lg px-2 py-1 flex-1 focus:outline-none focus:ring-1 focus:ring-blue-400" />
+  <button type="submit" class="text-xs bg-blue-50 text-blue-600 px-2 py-1 rounded-lg hover:bg-blue-100">Tags</button>
+</form>
+
+{# Label editor #}
+<form
+  hx-post="/todos/{{ todo.id }}/labels/htmx"
+  hx-target="#todo-{{ todo.id }}"
+  hx-swap="outerHTML"
+  class="flex gap-1">
+  <input
+    name="labels"
+    type="text"
+    value="{{ todo.labels | join(', ') }}"
+    placeholder="label1, label2"
+    class="text-xs border border-blue-100 rounded-lg px-2 py-1 flex-1 focus:outline-none focus:ring-1 focus:ring-blue-400" />
+  <button type="submit" class="text-xs bg-blue-50 text-blue-600 px-2 py-1 rounded-lg hover:bg-blue-100">Labels</button>
+</form>
+
+{# Title editor #}
+<form
+  hx-post="/todos/{{ todo.id }}/title/htmx"
+  hx-target="#todo-{{ todo.id }}"
+  hx-swap="outerHTML"
+  class="flex gap-1">
+  <input
+    name="title"
+    type="text"
+    value="{{ todo.title }}"
+    required
+    class="text-xs border border-gray-200 rounded-lg px-2 py-1 flex-1 focus:outline-none focus:ring-1 focus:ring-blue-400" />
+  <button type="submit" class="text-xs bg-blue-50 text-blue-600 px-2 py-1 rounded-lg hover:bg-blue-100">Title</button>
+</form>
+
+{# Notes editor #}
+<form
+  hx-post="/todos/{{ todo.id }}/notes/htmx"
+  hx-target="#todo-{{ todo.id }}"
+  hx-swap="outerHTML"
+  class="space-y-1">
+  <textarea
+    name="notes"
+    rows="3"
+    placeholder="Add a note…"
+    class="text-xs border border-gray-200 rounded-lg px-2 py-1 w-full resize-none focus:outline-none focus:ring-1 focus:ring-blue-400"
+    onkeydown="if(event.key==='Enter'&&(event.metaKey||event.ctrlKey)){event.preventDefault();this.closest('form').requestSubmit();}">{{ todo.notes or '' }}</textarea>
+  <div class="flex gap-1 justify-end">
+    <button
+      type="button"
+      onclick="this.closest('details').removeAttribute('open')"
+      class="text-xs text-gray-400 hover:text-gray-600 px-2 py-1 rounded-lg hover:bg-gray-50">Cancel</button>
+    <button type="submit" class="text-xs bg-blue-50 text-blue-600 px-2 py-1 rounded-lg hover:bg-blue-100">Save</button>
+  </div>
+</form>
+
+{# Delete #}
+<div class="border-t border-gray-100 pt-2">
+  <button
+    hx-delete="/todos/{{ todo.id }}/htmx"
+    hx-target="#todo-{{ todo.id }}"
+    hx-swap="outerHTML"
+    hx-confirm="Delete this todo?"
+    class="text-xs text-red-400 hover:text-red-600 transition-colors">
+    Delete
+  </button>
+</div>

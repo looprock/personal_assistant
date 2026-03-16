@@ -7,16 +7,12 @@ DELETE /jira/dismiss/{ticket_key} — remove from ignore list
 
 from __future__ import annotations
 
-from pathlib import Path
-
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates
 
 from app.auth import require_auth
 from app.db import pool
-
-templates = Jinja2Templates(directory=str(Path(__file__).parent.parent / "templates"))
+from app.templating import templates
 
 router = APIRouter(prefix="/jira", tags=["jira"], dependencies=[Depends(require_auth)])
 
