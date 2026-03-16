@@ -125,20 +125,6 @@
   </div>
   {% endif %}
 
-  {# ── Unanswered emails ───────────────────────────────────────────────── #}
-  {% set all_emails = unanswered_icloud + unanswered_gmail %}
-  {% if all_emails %}
-  <div class="section">
-    <h2>Unanswered Emails <span class="badge">{{ all_emails | length }}</span></h2>
-    {% for e in all_emails %}
-    <div class="item">
-      <div class="item-title">{{ e.subject }}</div>
-      <div class="item-meta">From {{ e.sender }} &nbsp;·&nbsp; {{ e.date[:10] }}{% if e.account %} &nbsp;·&nbsp; {{ e.account }}{% endif %}</div>
-    </div>
-    {% endfor %}
-  </div>
-  {% endif %}
-
   {# ── Slack mentions ──────────────────────────────────────────────────── #}
   {% if slack_mentions %}
   <div class="section">
@@ -155,7 +141,7 @@
   </div>
   {% endif %}
 
-  {% if not (weather or stocks or calendar_events or unprocessed_todos or jira_tickets or unanswered_icloud or unanswered_gmail or slack_mentions) %}
+  {% if not (weather or stocks or calendar_events or unprocessed_todos or jira_tickets or slack_mentions) %}
   <div class="section">
     <p class="empty">Nothing to report today. Enjoy your day!</p>
   </div>
