@@ -122,13 +122,21 @@ async def todos_page(request: Request):
             unprocessed_count=len(unprocessed),
         )
 
-    seen: set[str] = set()
+    seen_tags: set[str] = set()
     all_tags: list[str] = []
     for r in active:
         for t in r["tags"]:
-            if t not in seen:
-                seen.add(t)
+            if t not in seen_tags:
+                seen_tags.add(t)
                 all_tags.append(t)
+
+    seen_labels: set[str] = set()
+    all_labels: list[str] = []
+    for r in (*unprocessed, *active):
+        for l in r["labels"]:
+            if l not in seen_labels:
+                seen_labels.add(l)
+                all_labels.append(l)
 
     return templates.TemplateResponse("todos.html", {
         "request": request,
@@ -136,6 +144,7 @@ async def todos_page(request: Request):
         "unprocessed_todos": [dict(r) for r in unprocessed],
         "active_todos": [dict(r) for r in active],
         "all_tags": sorted(all_tags),
+        "all_labels": sorted(all_labels),
         "job_health": await job_status.health(),
         **badge_counts,
     })

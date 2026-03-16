@@ -11,8 +11,8 @@
   {% set search_target = "#todos-content" %}
   {% include "partials/search_input.html" %}
 
-  {# ── Tag cloud ────────────────────────────────────────────────────────── #}
-  {% if all_tags or unprocessed_todos %}
+  {# ── Tag/label cloud ──────────────────────────────────────────────────── #}
+  {% if all_tags or all_labels or unprocessed_todos %}
   <div class="bg-white rounded-2xl px-4 py-3 shadow-sm">
     <div class="flex flex-wrap gap-1.5" id="tag-cloud">
       <button
@@ -38,7 +38,17 @@
         hx-swap="innerHTML"
         onclick="setActiveTag(this)"
         class="tag-pill text-xs px-2.5 py-1 rounded-full border border-gray-200 text-gray-500 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 transition-colors">
-        {{ tag }}
+        tag:{{ tag }}
+      </button>
+      {% endfor %}
+      {% for label in all_labels %}
+      <button
+        hx-get="/todos/filter/htmx?label={{ label | urlencode }}"
+        hx-target="#todos-content"
+        hx-swap="innerHTML"
+        onclick="setActiveTag(this)"
+        class="tag-pill text-xs px-2.5 py-1 rounded-full border border-blue-200 text-blue-500 hover:bg-blue-100 hover:text-blue-700 hover:border-blue-300 transition-colors">
+        label:{{ label }}
       </button>
       {% endfor %}
     </div>
