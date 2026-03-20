@@ -17,3 +17,11 @@ def _slack_ts_to_date(ts: str) -> str:
 
 
 templates.env.filters["slack_ts_date"] = _slack_ts_to_date
+
+
+def _now() -> datetime:
+    return datetime.now(tz=timezone.utc)
+
+
+# Make `now` available in all templates for overdue comparisons
+templates.env.globals["now"] = _now

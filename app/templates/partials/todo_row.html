@@ -24,7 +24,18 @@
   <span class="bg-gray-100 text-gray-500 text-xs px-1.5 py-0.5 rounded-full flex-shrink-0">{{ tag }}</span>
   {% endfor %}
 
-  {# Date #}
+  {# Due date badge (shown in red if overdue) #}
+  {% if todo.due_date %}
+  {% set due_str = todo.due_date | string | truncate(10, True, '') %}
+  {% set is_overdue = todo.due_date < now() %}
+  <span class="text-xs flex-shrink-0 px-1.5 py-0.5 rounded-full font-medium
+    {{ 'bg-red-100 text-red-600' if is_overdue else 'bg-yellow-50 text-yellow-600' }}"
+    title="Due {{ due_str }}">
+    {% if is_overdue %}overdue{% else %}due {{ due_str }}{% endif %}
+  </span>
+  {% endif %}
+
+  {# Created date #}
   <span class="text-xs text-gray-300 flex-shrink-0">{{ todo.created_at | string | truncate(10, True, '') }}</span>
 
   {# Edit toggle #}
@@ -46,6 +57,7 @@
             hx-target="#todo-{{ todo.id }}" hx-swap="outerHTML"
             class="flex gap-1">
         <input name="tags" type="text" value="{{ todo.tags | join(', ') }}" placeholder="tag1, tag2"
+               list="tags-list"
                class="text-xs border border-gray-200 rounded-lg px-2 py-1 flex-1 focus:outline-none focus:ring-1 focus:ring-blue-400" />
         <button type="submit" class="text-xs bg-blue-50 text-blue-600 px-2 py-1 rounded-lg hover:bg-blue-100">Tags</button>
       </form>
@@ -55,8 +67,19 @@
             hx-target="#todo-{{ todo.id }}" hx-swap="outerHTML"
             class="flex gap-1">
         <input name="labels" type="text" value="{{ todo.labels | join(', ') }}" placeholder="label1, label2"
+               list="labels-list"
                class="text-xs border border-blue-100 rounded-lg px-2 py-1 flex-1 focus:outline-none focus:ring-1 focus:ring-blue-400" />
         <button type="submit" class="text-xs bg-blue-50 text-blue-600 px-2 py-1 rounded-lg hover:bg-blue-100">Labels</button>
+      </form>
+
+      {# Due date editor #}
+      <form hx-post="/todos/{{ todo.id }}/due-date/htmx"
+            hx-target="#todo-{{ todo.id }}" hx-swap="outerHTML"
+            class="flex gap-1 items-center">
+        <input name="due_date" type="date"
+               value="{{ todo.due_date | string | truncate(10, True, '') if todo.due_date else '' }}"
+               class="text-xs border border-gray-200 rounded-lg px-2 py-1 flex-1 focus:outline-none focus:ring-1 focus:ring-blue-400" />
+        <button type="submit" class="text-xs bg-blue-50 text-blue-600 px-2 py-1 rounded-lg hover:bg-blue-100">Due</button>
       </form>
 
       {# Notes editor — textarea starts empty; existing notes visible in the preview below #}
@@ -69,7 +92,7 @@
         <div class="flex gap-1 justify-end">
           <button type="button" onclick="this.closest('details').removeAttribute('open')"
                   class="text-xs text-gray-400 hover:text-gray-600 px-2 py-1 rounded-lg hover:bg-gray-50">Cancel</button>
-          <button type="submit" class="text-xs bg-blue-50 text-blue-600 px-2 py-1 rounded-lg hover:bg-blue-100">Save</button>
+          <button type="submit" class="text-xs bg-blue-50 text-blue-600 px-2 py-1 rounded-lg hover:bg-blue-100">Save Note</button>
         </div>
       </form>
 

@@ -20,11 +20,7 @@
               d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
       </svg>
       Todos
-      {% if unprocessed_count %}
-      <span class="absolute top-1 right-6 w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
-        {{ unprocessed_count }}
-      </span>
-      {% endif %}
+      {% include "partials/unprocessed_badge.html" %}
     </a>
 
     <a href="/jira"

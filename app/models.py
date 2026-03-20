@@ -26,6 +26,7 @@ class TodoUpdate(BaseModel):
     notes: Optional[str] = None
     tags: Optional[list[str]] = None
     snoozed_until: Optional[datetime] = None
+    due_date: Optional[datetime] = None
 
 
 class Todo(BaseModel):
@@ -40,6 +41,7 @@ class Todo(BaseModel):
     created_at: datetime
     completed_at: Optional[datetime]
     snoozed_until: Optional[datetime]
+    due_date: Optional[datetime] = None
     tags: list[str]
     labels: list[str] = []
 

@@ -27,6 +27,20 @@
   <p class="text-sm text-gray-400 text-center py-8 bg-white rounded-2xl shadow-sm">No untagged todos.</p>
   {% endif %}
 
+{% elif filter_tag == "__active__" %}
+
+  {% if todos %}
+  <div class="bg-white rounded-2xl p-4 shadow-sm">
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="text-sm font-semibold text-gray-700">Active</h2>
+      <span class="text-xs text-gray-400">{{ todos | length }}</span>
+    </div>
+    <div>{% for todo in todos %}{% include "partials/todo_row.html" %}{% endfor %}</div>
+  </div>
+  {% else %}
+  <p class="text-sm text-gray-400 text-center py-8 bg-white rounded-2xl shadow-sm">No active todos.</p>
+  {% endif %}
+
 {% elif filter_tag %}
 
   {% if todos %}
@@ -43,7 +57,7 @@
 
 {% else %}
 
-  {# All — show both sections #}
+  {# Default — show only New/Unprocessed; Active is accessible via the tag cloud bubble #}
   {% if unprocessed_todos %}
   <div class="bg-white rounded-2xl p-4 shadow-sm">
     <div class="flex items-center justify-between mb-3">
@@ -54,20 +68,7 @@
   </div>
   {% else %}
   <div id="unprocessed-list"></div>
-  {% endif %}
-
-  {% if active_todos %}
-  <div class="bg-white rounded-2xl p-4 shadow-sm">
-    <div class="flex items-center justify-between mb-3">
-      <h2 class="text-sm font-semibold text-gray-700">Active</h2>
-      <span class="text-xs text-gray-400">{{ active_todos | length }}</span>
-    </div>
-    <div>{% for todo in active_todos %}{% include "partials/todo_row.html" %}{% endfor %}</div>
-  </div>
-  {% endif %}
-
-  {% if not unprocessed_todos and not active_todos %}
-  <p class="text-sm text-gray-400 text-center py-8 bg-white rounded-2xl shadow-sm">No todos yet.</p>
+  <p class="text-sm text-gray-400 text-center py-8 bg-white rounded-2xl shadow-sm">No new todos. Tap <strong>Active</strong> to see your backlog.</p>
   {% endif %}
 
 {% endif %}

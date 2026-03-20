@@ -1,0 +1,18 @@
+{# Refreshable unprocessed count badge for the Todos tab nav item.
+   When included from tab_nav.html, uses `unprocessed_count`.
+   When swapped via HTMX from /todos/unprocessed-count/htmx, uses `count`. #}
+{% set _n = count if count is defined else unprocessed_count %}
+{% if _n %}
+<span id="unprocessed-badge"
+      hx-get="/todos/unprocessed-count/htmx"
+      hx-trigger="todosChanged from:body"
+      hx-swap="outerHTML"
+      class="absolute top-1 right-6 w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+  {{ _n }}
+</span>
+{% else %}
+<span id="unprocessed-badge"
+      hx-get="/todos/unprocessed-count/htmx"
+      hx-trigger="todosChanged from:body"
+      hx-swap="outerHTML"></span>
+{% endif %}

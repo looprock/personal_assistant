@@ -133,16 +133,17 @@ async def todos_page(request: Request):
     seen_labels: set[str] = set()
     all_labels: list[str] = []
     for r in (*unprocessed, *active):
-        for l in r["labels"]:
-            if l not in seen_labels:
-                seen_labels.add(l)
-                all_labels.append(l)
+        for lbl in r["labels"]:
+            if lbl not in seen_labels:
+                seen_labels.add(lbl)
+                all_labels.append(lbl)
 
     return templates.TemplateResponse("todos.html", {
         "request": request,
         "active_tab": "todos",
         "unprocessed_todos": [dict(r) for r in unprocessed],
         "active_todos": [dict(r) for r in active],
+        "active_count": len(active),
         "all_tags": sorted(all_tags),
         "all_labels": sorted(all_labels),
         "job_health": await job_status.health(),

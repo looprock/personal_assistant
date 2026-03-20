@@ -59,22 +59,32 @@ async def create_todo(body: TodoCreate):
 
 @router.post("/htmx", response_class=HTMLResponse)
 async def create_todo_htmx(request: Request):
-    """Create a todo from an HTMX form post and return the new todo row fragment."""
+    """Create a todo and return the full todos_content fragment so counts update."""
     form = await request.form()
     title = (form.get("title") or "").strip()
     if not title:
         return HTMLResponse("")
 
     async with pool().acquire() as conn:
-        row = await conn.fetchrow(
+        await conn.fetchrow(
             "INSERT INTO todos (title, source, tags) VALUES ($1, 'manual', '{}') RETURNING *",
             title,
         )
+        unprocessed = [dict(r) for r in await conn.fetch(
+            "SELECT * FROM todos WHERE completed_at IS NULL AND tags = '{}' ORDER BY created_at DESC"
+        )]
+        active = [dict(r) for r in await conn.fetch(
+            "SELECT * FROM todos WHERE completed_at IS NULL AND tags != '{}' "
+            "AND (snoozed_until IS NULL OR snoozed_until < NOW()) ORDER BY created_at DESC"
+        )]
 
-    return templates.TemplateResponse(
-        "partials/todo_row.html",
-        {"request": request, "todo": dict(row)},
+    response = templates.TemplateResponse(
+        "partials/todos_content.html",
+        {"request": request, "filter_tag": "", "filter_label": "",
+         "todos": [], "unprocessed_todos": unprocessed, "active_todos": active},
     )
+    response.headers["HX-Trigger"] = "todosChanged"
+    return response
 
 
 @router.patch("/{todo_id}")
@@ -116,20 +126,74 @@ async def delete_todo(todo_id: UUID):
 
 # ── HTMX fragments ────────────────────────────────────────────────────────────
 
+@router.get("/unprocessed-count/htmx", response_class=HTMLResponse)
+async def unprocessed_count_htmx(request: Request):
+    """Return a refreshable badge span with the current unprocessed count."""
+    async with pool().acquire() as conn:
+        count = await conn.fetchval(
+            "SELECT COUNT(*) FROM todos WHERE completed_at IS NULL AND tags = '{}'"
+        )
+    return templates.TemplateResponse(
+        "partials/unprocessed_badge.html",
+        {"request": request, "count": count},
+    )
+
+
+@router.get("/tag-cloud/htmx", response_class=HTMLResponse)
+async def tag_cloud_htmx(request: Request):
+    """Return the tag cloud pills so it can refresh after todos change."""
+    async with pool().acquire() as conn:
+        active_rows = await conn.fetch(
+            "SELECT tags, labels FROM todos WHERE completed_at IS NULL AND tags != '{}' "
+            "AND (snoozed_until IS NULL OR snoozed_until < NOW())"
+        )
+        unprocessed_rows = await conn.fetch(
+            "SELECT labels FROM todos WHERE completed_at IS NULL AND tags = '{}'"
+        )
+        active_count = await conn.fetchval(
+            "SELECT COUNT(*) FROM todos WHERE completed_at IS NULL AND tags != '{}' "
+            "AND (snoozed_until IS NULL OR snoozed_until < NOW())"
+        )
+
+    seen_tags: set[str] = set()
+    all_tags: list[str] = []
+    for r in active_rows:
+        for t in r["tags"]:
+            if t not in seen_tags:
+                seen_tags.add(t)
+                all_tags.append(t)
+
+    seen_labels: set[str] = set()
+    all_labels: list[str] = []
+    for r in (*active_rows, *unprocessed_rows):
+        for lbl in r["labels"]:
+            if lbl not in seen_labels:
+                seen_labels.add(lbl)
+                all_labels.append(lbl)
+
+    return templates.TemplateResponse(
+        "partials/tag_cloud_pills.html",
+        {"request": request, "all_tags": sorted(all_tags),
+         "all_labels": sorted(all_labels), "active_count": active_count},
+    )
+
+
 @router.get("/search/htmx", response_class=HTMLResponse)
 async def search_todos_htmx(request: Request, q: str = ""):
     """Full-text search across title, notes, and tags."""
     q = q.strip()
     async with pool().acquire() as conn:
         if q:
+            # Match on title, notes, tags (exact), or labels (exact)
             unprocessed = [dict(r) for r in await conn.fetch(
                 "SELECT * FROM todos WHERE completed_at IS NULL AND tags = '{}' "
-                "AND (title ILIKE $1 OR notes ILIKE $1) ORDER BY created_at DESC",
-                f"%{q}%",
+                "AND (title ILIKE $1 OR notes ILIKE $1 OR $2 ILIKE ANY(labels)) "
+                "ORDER BY created_at DESC",
+                f"%{q}%", q,
             )]
             active = [dict(r) for r in await conn.fetch(
                 "SELECT * FROM todos WHERE completed_at IS NULL AND tags != '{}' "
-                "AND (title ILIKE $1 OR notes ILIKE $1 OR $2 ILIKE ANY(tags)) "
+                "AND (title ILIKE $1 OR notes ILIKE $1 OR $2 ILIKE ANY(tags) OR $2 ILIKE ANY(labels)) "
                 "AND (snoozed_until IS NULL OR snoozed_until < NOW()) ORDER BY created_at DESC",
                 f"%{q}%", q,
             )]
@@ -144,48 +208,65 @@ async def search_todos_htmx(request: Request, q: str = ""):
 
     return templates.TemplateResponse("partials/todos_content.html", {
         "request": request, "filter_tag": "", "filter_label": "",
-        "todos": [], "unprocessed_todos": unprocessed, "active_todos": active,
+        "todos": [], "unprocessed_todos": unprocessed, "active_todos": active, "sort": "date_desc",
     })
 
 
 @router.get("/filter/htmx", response_class=HTMLResponse)
-async def filter_todos_htmx(request: Request, tag: str = "", label: str = ""):
+async def filter_todos_htmx(
+    request: Request, tag: str = "", label: str = "",
+    sort: str = "date_desc",
+):
     """Return filtered todos_content partial for HTMX swap into #todos-content."""
+    order = {
+        "date_desc": "created_at DESC",
+        "date_asc": "created_at ASC",
+        "title_asc": "title ASC",
+        "title_desc": "title DESC",
+    }.get(sort, "created_at DESC")
+
     async with pool().acquire() as conn:
         if label:
             todos = [dict(r) for r in await conn.fetch(
-                "SELECT * FROM todos WHERE completed_at IS NULL AND $1 = ANY(labels) "
-                "ORDER BY created_at DESC",
+                f"SELECT * FROM todos WHERE completed_at IS NULL AND $1 = ANY(labels) "
+                f"ORDER BY {order}",
                 label,
             )]
             ctx = {"request": request, "filter_tag": "", "filter_label": label,
-                   "todos": todos, "unprocessed_todos": [], "active_todos": []}
+                   "todos": todos, "unprocessed_todos": [], "active_todos": [],
+                   "sort": sort}
         elif tag == "__untagged__":
             todos = [dict(r) for r in await conn.fetch(
-                "SELECT * FROM todos WHERE completed_at IS NULL AND tags = '{}' "
-                "ORDER BY created_at DESC"
+                f"SELECT * FROM todos WHERE completed_at IS NULL AND tags = '{{}}' "
+                f"ORDER BY {order}"
             )]
             ctx = {"request": request, "filter_tag": tag, "filter_label": "",
-                   "todos": todos, "unprocessed_todos": [], "active_todos": []}
+                   "todos": todos, "unprocessed_todos": [], "active_todos": [],
+                   "sort": sort}
+        elif tag == "__active__":
+            todos = [dict(r) for r in await conn.fetch(
+                f"SELECT * FROM todos WHERE completed_at IS NULL AND tags != '{{}}' "
+                f"AND (snoozed_until IS NULL OR snoozed_until < NOW()) ORDER BY {order}"
+            )]
+            ctx = {"request": request, "filter_tag": tag, "filter_label": "",
+                   "todos": todos, "unprocessed_todos": [], "active_todos": [],
+                   "sort": sort}
         elif tag:
             todos = [dict(r) for r in await conn.fetch(
-                "SELECT * FROM todos WHERE completed_at IS NULL AND $1 = ANY(tags) "
-                "AND (snoozed_until IS NULL OR snoozed_until < NOW()) ORDER BY created_at DESC",
+                f"SELECT * FROM todos WHERE completed_at IS NULL AND $1 = ANY(tags) "
+                f"AND (snoozed_until IS NULL OR snoozed_until < NOW()) ORDER BY {order}",
                 tag,
             )]
             ctx = {"request": request, "filter_tag": tag, "filter_label": "",
-                   "todos": todos, "unprocessed_todos": [], "active_todos": []}
+                   "todos": todos, "unprocessed_todos": [], "active_todos": [],
+                   "sort": sort}
         else:
             unprocessed = [dict(r) for r in await conn.fetch(
-                "SELECT * FROM todos WHERE completed_at IS NULL AND tags = '{}' "
-                "ORDER BY created_at DESC"
-            )]
-            active = [dict(r) for r in await conn.fetch(
-                "SELECT * FROM todos WHERE completed_at IS NULL AND tags != '{}' "
-                "AND (snoozed_until IS NULL OR snoozed_until < NOW()) ORDER BY created_at DESC"
+                f"SELECT * FROM todos WHERE completed_at IS NULL AND tags = '{{}}' "
+                f"ORDER BY {order}"
             )]
             ctx = {"request": request, "filter_tag": "", "filter_label": "", "todos": [],
-                   "unprocessed_todos": unprocessed, "active_todos": active}
+                   "unprocessed_todos": unprocessed, "active_todos": [], "sort": sort}
 
     return templates.TemplateResponse("partials/todos_content.html", ctx)
 
@@ -198,7 +279,9 @@ async def complete_todo_htmx(request: Request, todo_id: UUID):
         await conn.execute(
             "UPDATE todos SET completed_at = NOW() WHERE id = $1", todo_id
         )
-    return HTMLResponse("")
+    response = HTMLResponse("")
+    response.headers["HX-Trigger"] = "todosChanged"
+    return response
 
 
 @router.post("/{todo_id}/tags/htmx", response_class=HTMLResponse)
@@ -256,12 +339,43 @@ async def edit_panel_htmx(request: Request, todo_id: UUID):
 
 
 @router.delete("/{todo_id}/htmx", response_class=HTMLResponse)
-async def delete_todo_htmx(todo_id: UUID):
+async def delete_todo_htmx(request: Request, todo_id: UUID):
     """Delete a todo and return empty response so HTMX removes the row."""
     await _get_todo_or_404(todo_id)
     async with pool().acquire() as conn:
         await conn.execute("DELETE FROM todos WHERE id = $1", todo_id)
-    return HTMLResponse("")
+    response = HTMLResponse("")
+    response.headers["HX-Trigger"] = "todosChanged"
+    return response
+
+
+@router.post("/{todo_id}/due-date/htmx", response_class=HTMLResponse)
+async def update_due_date_htmx(request: Request, todo_id: UUID):
+    """Update due_date from a form submission and return the updated todo row fragment."""
+    form = await request.form()
+    due_date_raw = (form.get("due_date") or "").strip()
+
+    from datetime import datetime, timezone
+    due_date = None
+    if due_date_raw:
+        try:
+            due_date = datetime.fromisoformat(due_date_raw).replace(tzinfo=timezone.utc)
+        except ValueError:
+            due_date = None
+
+    async with pool().acquire() as conn:
+        row = await conn.fetchrow(
+            "UPDATE todos SET due_date = $2 WHERE id = $1 RETURNING *",
+            todo_id,
+            due_date,
+        )
+
+    response = templates.TemplateResponse(
+        "partials/todo_row.html",
+        {"request": request, "todo": dict(row), "keep_open": True},
+    )
+    response.headers["HX-Trigger"] = "todosChanged"
+    return response
 
 
 @router.post("/{todo_id}/notes/htmx", response_class=HTMLResponse)

@@ -11,56 +11,46 @@
   {% set search_target = "#todos-content" %}
   {% include "partials/search_input.html" %}
 
-  {# ── Tag/label cloud ──────────────────────────────────────────────────── #}
-  {% if all_tags or all_labels or unprocessed_todos %}
+  {# ── Tag/label cloud (self-refreshing) ───────────────────────────────── #}
+  {% if all_tags or all_labels or unprocessed_todos or active_count %}
   <div class="bg-white rounded-2xl px-4 py-3 shadow-sm">
-    <div class="flex flex-wrap gap-1.5" id="tag-cloud">
-      <button
-        hx-get="/todos/filter/htmx"
-        hx-target="#todos-content"
-        hx-swap="innerHTML"
-        onclick="setActiveTag(this)"
-        class="tag-pill active text-xs px-2.5 py-1 rounded-full border bg-blue-100 text-blue-700 border-blue-300 transition-colors">
-        All
-      </button>
-      <button
-        hx-get="/todos/filter/htmx?tag=__untagged__"
-        hx-target="#todos-content"
-        hx-swap="innerHTML"
-        onclick="setActiveTag(this)"
-        class="tag-pill text-xs px-2.5 py-1 rounded-full border border-gray-200 text-gray-500 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 transition-colors">
-        Untagged
-      </button>
-      {% for tag in all_tags %}
-      <button
-        hx-get="/todos/filter/htmx?tag={{ tag | urlencode }}"
-        hx-target="#todos-content"
-        hx-swap="innerHTML"
-        onclick="setActiveTag(this)"
-        class="tag-pill text-xs px-2.5 py-1 rounded-full border border-gray-200 text-gray-500 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 transition-colors">
-        tag:{{ tag }}
-      </button>
-      {% endfor %}
-      {% for label in all_labels %}
-      <button
-        hx-get="/todos/filter/htmx?label={{ label | urlencode }}"
-        hx-target="#todos-content"
-        hx-swap="innerHTML"
-        onclick="setActiveTag(this)"
-        class="tag-pill text-xs px-2.5 py-1 rounded-full border border-blue-200 text-blue-500 hover:bg-blue-100 hover:text-blue-700 hover:border-blue-300 transition-colors">
-        label:{{ label }}
-      </button>
-      {% endfor %}
+    <div id="tag-cloud"
+         class="flex flex-wrap gap-1.5"
+         hx-get="/todos/tag-cloud/htmx"
+         hx-trigger="todosChanged from:body"
+         hx-swap="innerHTML">
+      {% include "partials/tag_cloud_pills.html" %}
     </div>
   </div>
   {% endif %}
+
+  {# ── Sort controls ───────────────────────────────────────────────────── #}
+  <div class="flex items-center gap-1.5 px-1">
+    <span class="text-xs text-gray-400">Sort:</span>
+    <button onclick="applySort('date_desc')" data-sort="date_desc"
+            class="sort-btn active text-xs px-2.5 py-1 rounded-full border bg-blue-100 text-blue-700 border-blue-300 transition-colors">
+      Date ↓
+    </button>
+    <button onclick="applySort('date_asc')" data-sort="date_asc"
+            class="sort-btn text-xs px-2.5 py-1 rounded-full border border-gray-200 text-gray-500 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 transition-colors">
+      Date ↑
+    </button>
+    <button onclick="applySort('title_asc')" data-sort="title_asc"
+            class="sort-btn text-xs px-2.5 py-1 rounded-full border border-gray-200 text-gray-500 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 transition-colors">
+      A→Z
+    </button>
+    <button onclick="applySort('title_desc')" data-sort="title_desc"
+            class="sort-btn text-xs px-2.5 py-1 rounded-full border border-gray-200 text-gray-500 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 transition-colors">
+      Z→A
+    </button>
+  </div>
 
   {# ── New todo form ────────────────────────────────────────────────────── #}
   <div class="bg-white rounded-2xl p-4 shadow-sm">
     <form
       hx-post="/todos/htmx"
-      hx-target="#unprocessed-list"
-      hx-swap="afterbegin"
+      hx-target="#todos-content"
+      hx-swap="innerHTML"
       hx-on::after-request="this.reset()"
       class="flex gap-2">
       <input
@@ -89,6 +79,8 @@
 </div>
 
 <script>
+let _currentSort = 'date_desc';
+
 function setActiveTag(el) {
   document.querySelectorAll('#tag-cloud .tag-pill').forEach(p => {
     p.classList.remove('active', 'bg-blue-100', 'text-blue-700', 'border-blue-300');
@@ -96,8 +88,41 @@ function setActiveTag(el) {
   });
   el.classList.add('active', 'bg-blue-100', 'text-blue-700', 'border-blue-300');
   el.classList.remove('border-gray-200', 'text-gray-500');
+  // inject current sort into the request
+  const baseUrl = el.getAttribute('hx-get');
+  const url = new URL(baseUrl, window.location.origin);
+  url.searchParams.set('sort', _currentSort);
+  el.setAttribute('hx-get', url.pathname + url.search);
+}
+
+function applySort(sort) {
+  _currentSort = sort;
+  // update sort button styles
+  document.querySelectorAll('.sort-btn').forEach(b => {
+    const isActive = b.dataset.sort === sort;
+    b.classList.toggle('active', isActive);
+    b.classList.toggle('bg-blue-100', isActive);
+    b.classList.toggle('text-blue-700', isActive);
+    b.classList.toggle('border-blue-300', isActive);
+    b.classList.toggle('border-gray-200', !isActive);
+    b.classList.toggle('text-gray-500', !isActive);
+  });
+  // fire request with current tag filter + new sort
+  const activeTag = document.querySelector('#tag-cloud .tag-pill.active');
+  const baseUrl = activeTag ? activeTag.getAttribute('hx-get') : '/todos/filter/htmx';
+  const url = new URL(baseUrl, window.location.origin);
+  url.searchParams.set('sort', sort);
+  htmx.ajax('GET', url.pathname + url.search, {target: '#todos-content', swap: 'innerHTML'});
 }
 </script>
+
+{# Datalists for autocomplete in tag/label inputs #}
+<datalist id="tags-list">
+  {% for tag in all_tags %}<option value="{{ tag }}">{% endfor %}
+</datalist>
+<datalist id="labels-list">
+  {% for label in all_labels %}<option value="{{ label }}">{% endfor %}
+</datalist>
 
 {% include "partials/tab_nav.html" %}
 
