@@ -5,7 +5,7 @@
 {% if _n %}
 <span id="unprocessed-badge"
       hx-get="/todos/unprocessed-count/htmx"
-      hx-trigger="todosChanged from:body"
+      hx-trigger="todosChanged from:body, todoCreated from:body"
       hx-swap="outerHTML"
       class="absolute top-1 right-6 w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
   {{ _n }}
@@ -13,6 +13,6 @@
 {% else %}
 <span id="unprocessed-badge"
       hx-get="/todos/unprocessed-count/htmx"
-      hx-trigger="todosChanged from:body"
+      hx-trigger="todosChanged from:body, todoCreated from:body"
       hx-swap="outerHTML"></span>
 {% endif %}

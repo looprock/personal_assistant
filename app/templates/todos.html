@@ -17,7 +17,7 @@
     <div id="tag-cloud"
          class="flex flex-wrap gap-1.5"
          hx-get="/todos/tag-cloud/htmx"
-         hx-trigger="todosChanged from:body"
+         hx-trigger="todosChanged from:body, todoCreated from:body"
          hx-swap="innerHTML">
       {% include "partials/tag_cloud_pills.html" %}
     </div>
@@ -69,6 +69,7 @@
   {# ── Filterable todos ─────────────────────────────────────────────────── #}
   <div id="todos-content" class="space-y-4"
        hx-get="/todos/filter/htmx"
+       hx-vals="js:{sort: _currentSort, tag: _currentTag, label: _currentLabel}"
        hx-trigger="todosChanged from:body"
        hx-swap="innerHTML">
     {% set filter_tag = "" %}
@@ -80,6 +81,8 @@
 
 <script>
 let _currentSort = 'date_desc';
+let _currentTag = '';
+let _currentLabel = '';
 
 function setActiveTag(el) {
   document.querySelectorAll('#tag-cloud .tag-pill').forEach(p => {
@@ -88,11 +91,10 @@ function setActiveTag(el) {
   });
   el.classList.add('active', 'bg-blue-100', 'text-blue-700', 'border-blue-300');
   el.classList.remove('border-gray-200', 'text-gray-500');
-  // inject current sort into the request
-  const baseUrl = el.getAttribute('hx-get');
-  const url = new URL(baseUrl, window.location.origin);
-  url.searchParams.set('sort', _currentSort);
-  el.setAttribute('hx-get', url.pathname + url.search);
+  // track current filter so applySort and todosChanged can preserve it
+  const url = new URL(el.getAttribute('hx-get'), window.location.origin);
+  _currentTag = url.searchParams.get('tag') || '';
+  _currentLabel = url.searchParams.get('label') || '';
 }
 
 function applySort(sort) {
@@ -107,12 +109,11 @@ function applySort(sort) {
     b.classList.toggle('border-gray-200', !isActive);
     b.classList.toggle('text-gray-500', !isActive);
   });
-  // fire request with current tag filter + new sort
-  const activeTag = document.querySelector('#tag-cloud .tag-pill.active');
-  const baseUrl = activeTag ? activeTag.getAttribute('hx-get') : '/todos/filter/htmx';
-  const url = new URL(baseUrl, window.location.origin);
-  url.searchParams.set('sort', sort);
-  htmx.ajax('GET', url.pathname + url.search, {target: '#todos-content', swap: 'innerHTML'});
+  // fire request preserving current filter + new sort
+  const params = new URLSearchParams({ sort });
+  if (_currentTag) params.set('tag', _currentTag);
+  if (_currentLabel) params.set('label', _currentLabel);
+  htmx.ajax('GET', '/todos/filter/htmx?' + params.toString(), {target: '#todos-content', swap: 'innerHTML'});
 }
 </script>
 

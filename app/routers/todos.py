@@ -83,7 +83,7 @@ async def create_todo_htmx(request: Request):
         {"request": request, "filter_tag": "", "filter_label": "",
          "todos": [], "unprocessed_todos": unprocessed, "active_todos": active},
     )
-    response.headers["HX-Trigger"] = "todosChanged"
+    response.headers["HX-Trigger"] = "todoCreated"
     return response
 
 
