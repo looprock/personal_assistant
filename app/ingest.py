@@ -157,4 +157,8 @@ async def ingest_self_sent_emails(
     if gmail_to_archive:
         await gmail_mod.archive_messages(gmail_to_archive)
 
+    skipped = len(all_emails) - created
+    log.info("Ingestion complete: %d created, %d skipped, %d iCloud archived, %d Gmail archived",
+             created, skipped, len(archived_uids), len(gmail_to_archive))
+
     return created
