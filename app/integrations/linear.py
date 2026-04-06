@@ -51,7 +51,7 @@ async def fetch_stale_issues(inactive_days: int = 7) -> list[LinearIssue]:
     cutoff_iso = cutoff.isoformat()
 
     query = """
-    query StaleIssues($cutoff: DateTime!) {
+    query StaleIssues($cutoff: DateTimeOrDuration!) {
       viewer {
         assignedIssues(
           filter: {
