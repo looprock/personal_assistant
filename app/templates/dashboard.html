@@ -68,8 +68,8 @@
   </div>
   {% endif %}
 
-  {# ── Three columns ────────────────────────────────────────────────────── #}
-  <div class="grid grid-cols-3 gap-3 items-start">
+  {# ── Integration columns (auto-fit based on which are enabled) ────────── #}
+  <div class="flex flex-wrap gap-3 items-start [&>*]:flex-1 [&>*]:min-w-[200px]">
 
     {# ── Todos column ───────────────────────────────────────────────────── #}
     <div class="bg-white rounded-2xl shadow-sm overflow-hidden flex flex-col">
@@ -131,6 +131,7 @@
     </div>
 
     {# ── Jira column ────────────────────────────────────────────────────── #}
+    {% if jira_enabled %}
     <div class="bg-white rounded-2xl shadow-sm overflow-hidden flex flex-col">
       <a href="/jira"
          class="flex items-center justify-between px-3 py-2.5 border-b border-gray-100 hover:bg-gray-50 transition-colors">
@@ -177,7 +178,60 @@
       </a>
     </div>
 
+    {% endif %}
+
+    {# ── Linear column ──────────────────────────────────────────────────── #}
+    {% if linear_enabled %}
+    <div class="bg-white rounded-2xl shadow-sm overflow-hidden flex flex-col">
+      <a href="/linear"
+         class="flex items-center justify-between px-3 py-2.5 border-b border-gray-100 hover:bg-gray-50 transition-colors">
+        <span class="text-xs font-semibold text-gray-700">Linear</span>
+        <div class="flex items-center gap-1.5">
+          {% if linear_count %}
+          <span class="bg-purple-100 text-purple-600 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+            {{ linear_count }}
+          </span>
+          {% endif %}
+          <span class="text-gray-300 text-xs">›</span>
+        </div>
+      </a>
+
+      <div class="divide-y divide-gray-50 max-h-96 overflow-y-auto">
+        {% for t in linear_issues %}
+        <div id="linear-col-{{ t.issue_id | replace('-', '_') }}"
+             class="flex items-start gap-2 px-3 py-2">
+          <a href="{{ t.url }}" target="_blank"
+             class="text-[10px] font-medium text-blue-600 hover:underline flex-shrink-0 mt-0.5">
+            {{ t.issue_id }}
+          </a>
+          <span class="text-xs text-gray-700 flex-1 truncate">{{ t.title }}</span>
+          <button
+            hx-post="/linear/dismiss/{{ t.issue_id }}"
+            hx-target="#linear-col-{{ t.issue_id | replace('-', '_') }}"
+            hx-swap="outerHTML"
+            class="flex-shrink-0 text-[10px] text-gray-300 hover:text-red-400 transition-colors mt-0.5"
+            title="Dismiss">✕</button>
+        </div>
+        {% endfor %}
+
+        {% if not linear_issues %}
+        <p class="px-3 py-4 text-xs text-gray-300 text-center">No stale issues</p>
+        {% endif %}
+      </div>
+
+      <a href="/linear"
+         class="flex items-center justify-center gap-1 px-3 py-2 border-t border-gray-100 text-xs text-gray-400 hover:text-blue-500 hover:bg-gray-50 transition-colors">
+        View all
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+        </svg>
+      </a>
+    </div>
+
+    {% endif %}
+
     {# ── Slack column ───────────────────────────────────────────────────── #}
+    {% if slack_enabled %}
     <div class="bg-white rounded-2xl shadow-sm overflow-hidden flex flex-col">
       <a href="/slack"
          class="flex items-center justify-between px-3 py-2.5 border-b border-gray-100 hover:bg-gray-50 transition-colors">
@@ -231,6 +285,7 @@
         </svg>
       </a>
     </div>
+    {% endif %}
 
   </div>
 

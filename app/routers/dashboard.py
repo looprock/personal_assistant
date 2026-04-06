@@ -23,6 +23,15 @@ router = APIRouter(tags=["dashboard"], dependencies=[Depends(require_auth)])
 cfg = cfg_module.cfg
 
 
+def _integration_flags() -> dict[str, bool]:
+    """Check which optional integrations are configured."""
+    return {
+        "jira_enabled": all(os.environ.get(k) for k in ("PA_JIRA_URL", "PA_JIRA_EMAIL", "PA_JIRA_API_TOKEN")),
+        "linear_enabled": bool(os.environ.get("PA_LINEAR_API_KEY")),
+        "slack_enabled": bool(os.environ.get("PA_SLACK_TOKEN")),
+    }
+
+
 async def _missing_badge_counts(
     conn,
     *,
@@ -117,6 +126,7 @@ async def index(request: Request):
         "jira_count": len(jira_tickets),
         "linear_count": len(linear_issues),
         "slack_count": len(slack_mentions),
+        **_integration_flags(),
     })
 
 
@@ -161,6 +171,7 @@ async def todos_page(request: Request):
         "all_labels": sorted(all_labels),
         "job_health": await job_status.health(),
         **badge_counts,
+        **_integration_flags(),
     })
 
 
@@ -182,6 +193,7 @@ async def jira_page(request: Request):
         "jira_tickets": [dict(r) for r in jira_tickets],
         "job_health": await job_status.health(),
         **badge_counts,
+        **_integration_flags(),
     })
 
 
@@ -203,6 +215,7 @@ async def linear_page(request: Request):
         "linear_issues": [dict(r) for r in linear_issues],
         "job_health": await job_status.health(),
         **badge_counts,
+        **_integration_flags(),
     })
 
 
@@ -223,4 +236,5 @@ async def slack_page(request: Request):
         "slack_mentions": [dict(r) for r in slack_mentions],
         "job_health": await job_status.health(),
         **badge_counts,
+        **_integration_flags(),
     })

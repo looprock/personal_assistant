@@ -23,6 +23,7 @@
       {% include "partials/unprocessed_badge.html" %}
     </a>
 
+    {% if jira_enabled | default(true) %}
     <a href="/jira"
        class="relative flex-1 flex flex-col items-center py-3 gap-1 text-xs font-medium transition-colors
               {{ 'text-blue-600' if active_tab == 'jira' else 'text-gray-400 hover:text-gray-600' }}">
@@ -37,7 +38,9 @@
       </span>
       {% endif %}
     </a>
+    {% endif %}
 
+    {% if linear_enabled | default(true) %}
     <a href="/linear"
        class="relative flex-1 flex flex-col items-center py-3 gap-1 text-xs font-medium transition-colors
               {{ 'text-blue-600' if active_tab == 'linear' else 'text-gray-400 hover:text-gray-600' }}">
@@ -52,7 +55,9 @@
       </span>
       {% endif %}
     </a>
+    {% endif %}
 
+    {% if slack_enabled | default(true) %}
     <a href="/slack"
        class="relative flex-1 flex flex-col items-center py-3 gap-1 text-xs font-medium transition-colors
               {{ 'text-blue-600' if active_tab == 'slack' else 'text-gray-400 hover:text-gray-600' }}">
@@ -67,6 +72,7 @@
       </span>
       {% endif %}
     </a>
+    {% endif %}
 
   </div>
 </nav>
