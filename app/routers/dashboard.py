@@ -6,6 +6,7 @@ Dashboard routes — one per tab: /todos, /jira, /slack.
 from __future__ import annotations
 
 import json
+import logging
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse
@@ -19,6 +20,8 @@ from app.integrations import calendar as calendar_mod
 from app.digest import runner as digest_runner
 from app import config as cfg_module
 from app.templating import templates
+
+log = logging.getLogger(__name__)
 
 router = APIRouter(tags=["dashboard"], dependencies=[Depends(require_auth)])
 cfg = cfg_module.cfg
@@ -110,7 +113,8 @@ async def index(request: Request):
             gcal_credentials_envs=cfg.google_calendar.credentials_envs or None,
             gcal_calendar_ids=cfg.google_calendar.calendar_ids or None,
         )
-    except Exception:
+    except Exception as e:
+        log.warning("Calendar fetch failed: %s", e)
         calendar_events = []
 
     return templates.TemplateResponse("dashboard.html", {

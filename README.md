@@ -46,10 +46,9 @@ export PA_JIRA_EMAIL="you@yourco.com"
 export PA_JIRA_API_TOKEN="..."                             # from id.atlassian.com/manage-profile/security/api-tokens
 export PA_JIRA_REQUIRE_SPRINT="true"                       # optional: only show tickets in open sprints
 export PA_LINEAR_API_KEY="lin_api_..."                     # from Linear Settings > API > Personal API keys
-export PA_GMAIL_CREDENTIALS_ENVS="GMAIL_OAUTH_CREDS_1"    # comma-separated env var names
-export GMAIL_OAUTH_CREDS_1='{"client_id":"...","client_secret":"...","refresh_token":"...","email":"you@gmail.com"}'
-export PA_GCAL_CREDENTIALS_ENVS="GCAL_OAUTH_CREDS_1"      # comma-separated env var names (same OAuth JSON format as Gmail)
-export GCAL_OAUTH_CREDS_1='{"client_id":"...","client_secret":"...","refresh_token":"..."}'
+export PA_GMAIL_CREDENTIALS_ENVS="GMAIL_OAUTH_CREDS_WORK"  # comma-separated env var names
+export PA_GCAL_CREDENTIALS_ENVS="GMAIL_OAUTH_CREDS_WORK"  # same token works for both Gmail + Calendar
+export GMAIL_OAUTH_CREDS_WORK='{"client_id":"...","client_secret":"...","refresh_token":"...","email":"you@gmail.com"}'
 export PA_GCAL_CALENDAR_IDS="primary"                      # comma-separated; omit for primary only
 ```
 
@@ -115,22 +114,25 @@ uv run python -m jobs.importers.run --todoist --joplin
 3. Click **Install to Workspace** → **Allow**
 4. Copy the **User OAuth Token** (starts with `xoxp-`)
 
-#### Gmail OAuth2 credentials (`GMAIL_OAUTH_CREDS_*`)
-Each Gmail account needs its own OAuth2 credentials JSON blob stored in an env var.
+#### Google OAuth2 credentials — Gmail + Calendar (`GMAIL_OAUTH_CREDS_*`)
+A single OAuth2 token covers both Gmail and Google Calendar. Each Google account needs its own credentials JSON blob stored in an env var.
 
 1. Go to [console.cloud.google.com](https://console.cloud.google.com) → create or select a project
-2. Enable the **Gmail API** under **APIs & Services → Library**
+2. Enable both the **Gmail API** and **Google Calendar API** under **APIs & Services → Library**
 3. Under **APIs & Services → Credentials**, click **Create Credentials → OAuth client ID**
    - Application type: **Desktop app**
 4. Download the JSON file — it contains `client_id` and `client_secret`
-5. Run the following to get a refresh token (one-time, per account):
+5. Run the following to get a refresh token with both scopes (one-time, per account):
    ```bash
    uv run python - <<'EOF'
    import json
    from google_auth_oauthlib.flow import InstalledAppFlow
    flow = InstalledAppFlow.from_client_secrets_file(
        "client_secret.json",
-       scopes=["https://www.googleapis.com/auth/gmail.modify"]
+       scopes=[
+           "https://www.googleapis.com/auth/gmail.modify",
+           "https://www.googleapis.com/auth/calendar.readonly",
+       ]
    )
    creds = flow.run_local_server(port=0)
    print(json.dumps({
@@ -143,33 +145,10 @@ Each Gmail account needs its own OAuth2 credentials JSON blob stored in an env v
    ```
    > Requires `google-auth-oauthlib`: `uv add google-auth-oauthlib`
    >
-   > The `gmail.modify` scope is needed so watched emails can be archived (INBOX label removed) after ingestion. If you only need read-only scanning (no watch patterns), `gmail.readonly` also works.
-6. Store the printed JSON as an env var (e.g. `GMAIL_OAUTH_CREDS_WORK`) and add the env var name to `PA_GMAIL_CREDENTIALS_ENVS`
-
-#### Google Calendar OAuth2 credentials (`GCAL_OAUTH_CREDS_*`)
-Same OAuth2 setup as Gmail, but with a different scope and API.
-
-1. In the same GCP project used for Gmail, enable the **Google Calendar API** under **APIs & Services → Library**
-2. Reuse the same OAuth client ID (Desktop app) from the Gmail setup, or create a new one
-3. Run the following to get a refresh token (one-time, per account):
-   ```bash
-   uv run python - <<'EOF'
-   import json
-   from google_auth_oauthlib.flow import InstalledAppFlow
-   flow = InstalledAppFlow.from_client_secrets_file(
-       "client_secret.json",
-       scopes=["https://www.googleapis.com/auth/calendar.readonly"]
-   )
-   creds = flow.run_local_server(port=0)
-   print(json.dumps({
-       "client_id": creds.client_id,
-       "client_secret": creds.client_secret,
-       "refresh_token": creds.refresh_token,
-   }))
-   EOF
-   ```
-4. Store the printed JSON as an env var (e.g. `GCAL_OAUTH_CREDS_1`) and add the env var name to `PA_GCAL_CREDENTIALS_ENVS`
-5. Optionally set `PA_GCAL_CALENDAR_IDS` to specific calendar IDs (comma-separated). Omit to use the primary calendar only.
+   > The `gmail.modify` scope is needed so watched emails can be archived (INBOX label removed) after ingestion. The `calendar.readonly` scope enables Google Calendar event fetching. If you don't need one of the features, you can omit its scope.
+6. Store the printed JSON as an env var (e.g. `GMAIL_OAUTH_CREDS_WORK`)
+7. Add the env var name to **both** `PA_GMAIL_CREDENTIALS_ENVS` and `PA_GCAL_CREDENTIALS_ENVS` — the same token works for both
+8. Optionally set `PA_GCAL_CALENDAR_IDS` to specific calendar IDs (comma-separated). Omit to use the primary calendar only.
 
 #### Linear API key (`PA_LINEAR_API_KEY`)
 1. Go to [linear.app](https://linear.app) → **Settings → API → Personal API keys**
