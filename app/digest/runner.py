@@ -90,6 +90,53 @@ def _slack_ts(m: slack.SlackMention) -> str:
     return str(m.timestamp.timestamp())
 
 
+async def refresh_caches() -> None:
+    """Fetch all integration data and update DB caches. No email sent."""
+    import asyncio
+
+    log.info("Refreshing integration caches…")
+
+    weather_task = asyncio.create_task(
+        weather.fetch(cfg.weather.location) if cfg.weather.location else asyncio.sleep(0)
+    )
+    stocks_task = asyncio.create_task(
+        stocks.fetch(cfg.stocks.tickers) if cfg.stocks.tickers else asyncio.sleep(0)
+    )
+    slack_task = asyncio.create_task(
+        slack.fetch_unanswered_mentions()
+    )
+    jira_task = asyncio.create_task(
+        jira.fetch_stale_tickets()
+    )
+    linear_task = asyncio.create_task(
+        linear.fetch_stale_issues()
+    )
+
+    weather_data, stocks_data, slack_mentions, jira_tickets, linear_issues = cast(
+        tuple[Any, Any, Any, Any, Any],
+        await asyncio.gather(
+            weather_task, stocks_task, slack_task, jira_task, linear_task,
+            return_exceptions=True,
+        ),
+    )
+
+    async with pool().acquire() as conn:
+        if isinstance(weather_data, WeatherData):
+            await _upsert_snapshot(conn, "weather", weather_data.model_dump())
+        if isinstance(stocks_data, list):
+            for s in stocks_data:
+                if isinstance(s, StockData):
+                    await _upsert_snapshot(conn, f"stock:{s.ticker}", s.model_dump())
+        if isinstance(jira_tickets, list):
+            await _refresh_jira_cache(conn, jira_tickets)
+        if isinstance(linear_issues, list):
+            await _refresh_linear_cache(conn, linear_issues)
+        if isinstance(slack_mentions, list):
+            await _refresh_slack_cache(conn, slack_mentions)
+
+    log.info("Cache refresh complete")
+
+
 async def run(dry_run: bool = False) -> dict[str, Any]:
     """
     Run the full digest pipeline. Returns the assembled digest data dict.
@@ -117,11 +164,13 @@ async def run(dry_run: bool = False) -> dict[str, Any]:
         stocks.fetch(cfg.stocks.tickers) if cfg.stocks.tickers else asyncio.sleep(0)
     )
     calendar_task = asyncio.create_task(
-        calendar.fetch_today(
-            username=cfg.icloud.username,
-            password=os.environ.get("PA_ICLOUD_PASSWORD", ""),
+        calendar.fetch_all_today(
+            icloud_username=cfg.icloud.username,
+            icloud_password=os.environ.get("PA_ICLOUD_PASSWORD", ""),
             caldav_url=cfg.calendar.caldav_url,
-            calendar_names=cfg.calendar.calendars or None,
+            icloud_calendars=cfg.calendar.calendars or None,
+            gcal_credentials_envs=cfg.google_calendar.credentials_envs or None,
+            gcal_calendar_ids=cfg.google_calendar.calendar_ids or None,
         )
     )
     slack_task = asyncio.create_task(

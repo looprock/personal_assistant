@@ -68,6 +68,12 @@ class CalendarConfig:
 
 
 @dataclass
+class GoogleCalendarConfig:
+    credentials_envs: list[str] = field(default_factory=list)  # env var names holding OAuth2 JSON
+    calendar_ids: list[str] = field(default_factory=list)  # empty = primary calendar only
+
+
+@dataclass
 class UIConfig:
     username: str = "admin"
 
@@ -91,6 +97,7 @@ class Config:
     ui: UIConfig = field(default_factory=UIConfig)
     smtp: SMTPConfig = field(default_factory=SMTPConfig)
     calendar: CalendarConfig = field(default_factory=CalendarConfig)
+    google_calendar: GoogleCalendarConfig = field(default_factory=GoogleCalendarConfig)
 
 
 def load() -> Config:
@@ -190,6 +197,23 @@ def load() -> Config:
         ),
     )
 
+    # ── Google Calendar ──────────────────────────────────────────────────────
+    gcal_raw = raw.get("google_calendar", {})
+    gcal_creds_from_yaml = [
+        a["credentials_env"]
+        for a in gcal_raw.get("accounts", [])
+        if "credentials_env" in a
+    ]
+    google_calendar = GoogleCalendarConfig(
+        credentials_envs=(
+            _env_list("PA_GCAL_CREDENTIALS_ENVS") or gcal_creds_from_yaml
+        ),
+        calendar_ids=(
+            _env_list("PA_GCAL_CALENDAR_IDS")
+            or gcal_raw.get("calendar_ids", [])
+        ),
+    )
+
     return Config(
         icloud=icloud,
         digest=digest,
@@ -201,6 +225,7 @@ def load() -> Config:
         ui=ui,
         smtp=smtp,
         calendar=calendar,
+        google_calendar=google_calendar,
     )
 
 

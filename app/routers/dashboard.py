@@ -16,6 +16,7 @@ from app.auth import require_auth
 from app.db import pool
 from app import job_status
 from app.integrations import calendar as calendar_mod
+from app.digest import runner as digest_runner
 from app import config as cfg_module
 from app.templating import templates
 
@@ -101,11 +102,13 @@ async def index(request: Request):
     ]
 
     try:
-        calendar_events = await calendar_mod.fetch_today(
-            username=cfg.icloud.username,
-            password=os.environ.get("PA_ICLOUD_PASSWORD", ""),
+        calendar_events = await calendar_mod.fetch_all_today(
+            icloud_username=cfg.icloud.username,
+            icloud_password=os.environ.get("PA_ICLOUD_PASSWORD", ""),
             caldav_url=cfg.calendar.caldav_url,
-            calendar_names=cfg.calendar.calendars or None,
+            icloud_calendars=cfg.calendar.calendars or None,
+            gcal_credentials_envs=cfg.google_calendar.credentials_envs or None,
+            gcal_calendar_ids=cfg.google_calendar.calendar_ids or None,
         )
     except Exception:
         calendar_events = []
@@ -128,6 +131,13 @@ async def index(request: Request):
         "slack_count": len(slack_mentions),
         **_integration_flags(),
     })
+
+
+@router.post("/refresh", response_class=HTMLResponse)
+async def refresh():
+    """Refresh all integration caches (weather, stocks, jira, linear, slack)."""
+    await digest_runner.refresh_caches()
+    return HTMLResponse("", headers={"HX-Redirect": "/"})
 
 
 @router.get("/todos", response_class=HTMLResponse)

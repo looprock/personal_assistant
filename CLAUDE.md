@@ -142,6 +142,7 @@ linear_ignores:  -- persistent ignore list; UI dismiss button adds entries here
 | Jira | REST API v3 (`/rest/api/3/search/jql`) | Open tickets owned by user, inactive 1+ week |
 | Linear | GraphQL API (`api.linear.app/graphql`) | Open issues assigned to user, inactive 1+ week |
 | Slack | Slack API (OAuth token) | @mentions not responded to in 12h |
+| Google Calendar | Calendar API (OAuth2 per account) | Today's events, merged with iCloud calendar |
 | Weather | Open-Meteo (no key required) | Daily forecast |
 | Stocks | `yfinance` | Configurable tickers via `config.yaml`; cached in `snapshots` table |
 
@@ -167,7 +168,7 @@ linear_ignores:  -- persistent ignore list; UI dismiss button adds entries here
 | Backend | FastAPI |
 | Frontend | HTMX + Jinja2 (PWA) |
 | Database | NeonDB (Postgres) via `asyncpg` |
-| AI orchestration | Claude API (`anthropic`) |
+| AI orchestration | None (planned) |
 | IaC | Pulumi |
 | Container runtime | k3s (existing cluster) |
 | CI/CD | GitHub Actions |
@@ -268,8 +269,9 @@ All config is available via environment variables. `config.yaml` is optional and
 | `PA_JIRA_URL` / `PA_JIRA_EMAIL` / `PA_JIRA_API_TOKEN` | Jira REST API credentials |
 | `PA_JIRA_REQUIRE_SPRINT` | Optional; `true` restricts to open sprints only |
 | `PA_LINEAR_API_KEY` | Linear API key for stale issue tracking |
+| `PA_GCAL_CREDENTIALS_ENVS` | Comma-separated list of env var names, each holding a Google Calendar OAuth2 JSON blob |
+| `PA_GCAL_CALENDAR_IDS` | Comma-separated Google Calendar IDs; omit for primary only |
 | `TODOIST_API_TOKEN` | Todoist importer only |
 | `DROPBOX_ACCESS_TOKEN` | Joplin importer only |
 | `JOPLIN_DROPBOX_PATH` | Optional, defaults to `/Apps/Joplin` |
-| `ANTHROPIC_API_KEY` | Claude API for digest summarization |
 | `PA_GMAIL_CREDENTIALS_ENVS` | Comma-separated list of env var names, each holding a Gmail OAuth2 JSON credentials blob |

@@ -16,7 +16,6 @@ uv sync
 At minimum you need:
 ```bash
 export DATABASE_URL="postgresql://user:pass@host/dbname"   # NeonDB connection string
-export ANTHROPIC_API_KEY="sk-ant-..."                      # Claude API for digest summarization
 export PA_ICLOUD_USERNAME="you@icloud.com"
 export PA_ICLOUD_PASSWORD="xxxx-xxxx-xxxx-xxxx"            # app-specific password from appleid.apple.com
 export PA_JWT_SECRET="your-fixed-secret-here"              # generate once with: openssl rand -hex 32
@@ -49,6 +48,9 @@ export PA_JIRA_REQUIRE_SPRINT="true"                       # optional: only show
 export PA_LINEAR_API_KEY="lin_api_..."                     # from Linear Settings > API > Personal API keys
 export PA_GMAIL_CREDENTIALS_ENVS="GMAIL_OAUTH_CREDS_1"    # comma-separated env var names
 export GMAIL_OAUTH_CREDS_1='{"client_id":"...","client_secret":"...","refresh_token":"...","email":"you@gmail.com"}'
+export PA_GCAL_CREDENTIALS_ENVS="GCAL_OAUTH_CREDS_1"      # comma-separated env var names (same OAuth JSON format as Gmail)
+export GCAL_OAUTH_CREDS_1='{"client_id":"...","client_secret":"...","refresh_token":"..."}'
+export PA_GCAL_CALENDAR_IDS="primary"                      # comma-separated; omit for primary only
 ```
 
 > **Backward compatibility:** `PA_ICLOUD_SELF_ADDRESSES` and `PA_ICLOUD_WATCH_PATTERNS` still work as fallbacks if the top-level `PA_SELF_ADDRESSES` / `PA_WATCH_PATTERNS` are not set.
@@ -143,6 +145,31 @@ Each Gmail account needs its own OAuth2 credentials JSON blob stored in an env v
    >
    > The `gmail.modify` scope is needed so watched emails can be archived (INBOX label removed) after ingestion. If you only need read-only scanning (no watch patterns), `gmail.readonly` also works.
 6. Store the printed JSON as an env var (e.g. `GMAIL_OAUTH_CREDS_WORK`) and add the env var name to `PA_GMAIL_CREDENTIALS_ENVS`
+
+#### Google Calendar OAuth2 credentials (`GCAL_OAUTH_CREDS_*`)
+Same OAuth2 setup as Gmail, but with a different scope and API.
+
+1. In the same GCP project used for Gmail, enable the **Google Calendar API** under **APIs & Services → Library**
+2. Reuse the same OAuth client ID (Desktop app) from the Gmail setup, or create a new one
+3. Run the following to get a refresh token (one-time, per account):
+   ```bash
+   uv run python - <<'EOF'
+   import json
+   from google_auth_oauthlib.flow import InstalledAppFlow
+   flow = InstalledAppFlow.from_client_secrets_file(
+       "client_secret.json",
+       scopes=["https://www.googleapis.com/auth/calendar.readonly"]
+   )
+   creds = flow.run_local_server(port=0)
+   print(json.dumps({
+       "client_id": creds.client_id,
+       "client_secret": creds.client_secret,
+       "refresh_token": creds.refresh_token,
+   }))
+   EOF
+   ```
+4. Store the printed JSON as an env var (e.g. `GCAL_OAUTH_CREDS_1`) and add the env var name to `PA_GCAL_CREDENTIALS_ENVS`
+5. Optionally set `PA_GCAL_CALENDAR_IDS` to specific calendar IDs (comma-separated). Omit to use the primary calendar only.
 
 #### Linear API key (`PA_LINEAR_API_KEY`)
 1. Go to [linear.app](https://linear.app) → **Settings → API → Personal API keys**
@@ -337,7 +364,6 @@ docker push your-registry/personal-assistant:latest
 kubectl apply -f k8s/namespace.yaml
 kubectl create secret generic personal-assistant-secrets \
   --from-literal=DATABASE_URL="$DATABASE_URL" \
-  --from-literal=ANTHROPIC_API_KEY="$ANTHROPIC_API_KEY" \
   --from-literal=PA_ICLOUD_PASSWORD="$PA_ICLOUD_PASSWORD" \
   --from-literal=PA_JWT_SECRET="$PA_JWT_SECRET" \
   --from-literal=PA_UI_PASSWORD="$PA_UI_PASSWORD" \
@@ -357,7 +383,7 @@ Update the `image:`, `host:`, and `tls.secretName` fields in `k8s/deployment.yam
 ```bash
 # Initialize project (first time)
 uv init
-uv add fastapi uvicorn anthropic asyncpg httpx slack-sdk yfinance jinja2 python-jose
+uv add fastapi uvicorn asyncpg httpx slack-sdk yfinance jinja2 python-jose
 
 # Run the API locally
 uv run uvicorn app.main:app --reload
