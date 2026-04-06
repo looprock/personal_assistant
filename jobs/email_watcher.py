@@ -22,10 +22,10 @@ log = logging.getLogger(__name__)
 async def run_email_watcher() -> None:
     cfg = cfg_module.cfg
     await ingest_self_sent_emails(
-        cfg.icloud.self_addresses,
+        cfg.self_addresses,
         gmail_credentials_envs=cfg.gmail.credentials_envs,
         since_days=cfg.icloud.ingest_since_days,
-        watch_patterns=cfg.icloud.watch_patterns or None,
+        watch_patterns=cfg.watch_patterns or None,
     )
 
 

@@ -226,9 +226,9 @@ All config is available via environment variables. `config.yaml` is optional and
 
 | config.yaml key | Env var | Notes |
 |---|---|---|
+| `self_addresses` | `PA_SELF_ADDRESSES` | comma-separated; falls back to `PA_ICLOUD_SELF_ADDRESSES` / `icloud.self_addresses` for backward compat |
+| `watch_patterns` | `PA_WATCH_PATTERNS` | comma-separated regex patterns; INBOX emails FROM matching addresses are ingested as todos but NOT archived (e.g. `.*@parentsquare\\.com`); applies to both iCloud and Gmail; falls back to `PA_ICLOUD_WATCH_PATTERNS` / `icloud.watch_patterns` |
 | `icloud.username` | `PA_ICLOUD_USERNAME` | |
-| `icloud.self_addresses` | `PA_ICLOUD_SELF_ADDRESSES` | comma-separated |
-| `icloud.watch_patterns` | `PA_ICLOUD_WATCH_PATTERNS` | comma-separated regex patterns; INBOX emails FROM matching addresses are ingested as todos but NOT archived (e.g. `.*@parentsquare\\.com`) |
 | `gmail.accounts[*].credentials_env` | `PA_GMAIL_CREDENTIALS_ENVS` | comma-separated list of env var names holding OAuth JSON |
 | `digest.recipient` | `PA_DIGEST_RECIPIENT` | |
 | `digest.schedule` | `PA_DIGEST_SCHEDULE` | cron expression, default `0 7,14 * * *` |

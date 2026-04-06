@@ -17,7 +17,8 @@ import base64
 import json
 import logging
 import os
-from dataclasses import dataclass
+import re
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
@@ -37,6 +38,7 @@ class GmailMessage:
     date: datetime
     account: str  # which Gmail account this came from
     body: Optional[str] = None
+    labels: list[str] = field(default_factory=list)
 
 
 def _get_credentials(credentials_env: str) -> dict[str, Any]:
@@ -129,6 +131,94 @@ def _extract_body(payload: dict) -> Optional[str]:
     return None
 
 
+def _pattern_to_gmail_hint(pattern: str) -> str:
+    """Extract an email-like hint from a regex pattern for Gmail from: queries.
+
+    e.g. '.*@parentsquare\\.com' → '@parentsquare.com'
+         'noreply@example\\.com' → 'noreply@example.com'
+    """
+    hint = pattern.replace('\\.', '\x00')
+    hint = re.sub(r'[.*+?^${}()\[\]|\\]', '', hint)
+    hint = hint.replace('\x00', '.')
+    return hint
+
+
+async def _list_watched_for_account(
+    credentials_env: str,
+    watch_patterns: list[str],
+) -> list[GmailMessage]:
+    """Fetch emails matching watch_patterns from a Gmail account.
+
+    Each pattern is a regex matched against the FROM address. Matching emails
+    are returned with labels=[hint] for ingestion as todos.
+    """
+    creds = _get_credentials(credentials_env)
+    access_token = await _refresh_access_token(creds)
+    account_email = creds.get("email", credentials_env)
+    headers = {"Authorization": f"Bearer {access_token}"}
+    messages: list[GmailMessage] = []
+    seen_ids: set[str] = set()
+
+    async with httpx.AsyncClient(timeout=30) as client:
+        for pattern in watch_patterns:
+            hint = _pattern_to_gmail_hint(pattern)
+            if not hint:
+                log.warning("  Gmail watch pattern %r produced empty hint — skipping", pattern)
+                continue
+
+            query = f"from:{hint} in:inbox newer_than:30d"
+            resp = await client.get(
+                f"{GMAIL_API_BASE}/users/me/messages",
+                headers=headers,
+                params={"q": query, "maxResults": 50},
+            )
+            resp.raise_for_status()
+            items = resp.json().get("messages", [])
+            log.info("  Gmail watch %r (hint=%r) → %d result(s)", pattern, hint, len(items))
+
+            for item in items:
+                if item["id"] in seen_ids:
+                    continue
+
+                msg_resp = await client.get(
+                    f"{GMAIL_API_BASE}/users/me/messages/{item['id']}",
+                    headers=headers,
+                    params={"format": "full"},
+                )
+                if msg_resp.status_code != 200:
+                    continue
+
+                msg = msg_resp.json()
+                headers_list = msg.get("payload", {}).get("headers", [])
+                hmap = {h["name"]: h["value"] for h in headers_list}
+
+                # Post-filter: apply the full regex against the FROM address
+                sender = hmap.get("From", "")
+                # Extract bare email from "Name <email>" format
+                match = re.search(r'<([^>]+)>', sender)
+                sender_email = match.group(1) if match else sender
+                if not re.search(pattern, sender_email, re.IGNORECASE):
+                    log.debug("  Gmail watch id=%s from=%r did not match %r — skipping",
+                              item["id"], sender_email, pattern)
+                    continue
+
+                seen_ids.add(item["id"])
+                date = datetime.fromtimestamp(int(msg.get("internalDate", 0)) / 1000, tz=timezone.utc)
+                body = _extract_body(msg.get("payload", {}))
+
+                messages.append(GmailMessage(
+                    message_id=hmap.get("Message-ID", item["id"]),
+                    subject=hmap.get("Subject", "(no subject)"),
+                    sender=sender,
+                    date=date,
+                    account=account_email,
+                    body=body,
+                    labels=[hint],
+                ))
+
+    return messages
+
+
 async def _list_self_sent_for_account(
     credentials_env: str,
     self_addresses: list[str],
@@ -184,23 +274,39 @@ async def _list_self_sent_for_account(
 async def fetch_self_sent(
     credentials_envs: list[str],
     self_addresses: list[str],
+    watch_patterns: list[str] | None = None,
 ) -> list[GmailMessage]:
-    """Fetch self-sent emails across all configured Gmail accounts."""
-    if not credentials_envs or not self_addresses:
+    """Fetch self-sent emails and watched-pattern emails across all configured Gmail accounts."""
+    if not credentials_envs:
         return []
 
     import asyncio
-    results = await asyncio.gather(
-        *[_list_self_sent_for_account(env, self_addresses) for env in credentials_envs],
-        return_exceptions=True,
-    )
+
+    tasks = []
+    if self_addresses:
+        tasks.extend(
+            _list_self_sent_for_account(env, self_addresses) for env in credentials_envs
+        )
+    if watch_patterns:
+        tasks.extend(
+            _list_watched_for_account(env, watch_patterns) for env in credentials_envs
+        )
+
+    if not tasks:
+        return []
+
+    results = await asyncio.gather(*tasks, return_exceptions=True)
 
     messages: list[GmailMessage] = []
-    for i, result in enumerate(results):
+    seen_message_ids: set[str] = set()
+    for result in results:
         if isinstance(result, Exception):
-            log.error("Gmail self-sent fetch failed for account %s: %s", credentials_envs[i], result)
+            log.error("Gmail fetch failed: %s", result)
         else:
-            messages.extend(result)
+            for msg in result:
+                if msg.message_id not in seen_message_ids:
+                    seen_message_ids.add(msg.message_id)
+                    messages.append(msg)
 
     return messages
 

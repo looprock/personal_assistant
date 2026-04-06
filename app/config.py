@@ -35,9 +35,7 @@ def _env_str(key: str, default: str | None = None) -> str | None:
 @dataclass
 class ICloudConfig:
     username: str
-    self_addresses: list[str]
     ingest_since_days: int = 30
-    watch_patterns: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -87,6 +85,8 @@ class Config:
     digest: DigestConfig
     weather: WeatherConfig
     stocks: StocksConfig
+    self_addresses: list[str] = field(default_factory=list)
+    watch_patterns: list[str] = field(default_factory=list)
     gmail: GmailConfig = field(default_factory=GmailConfig)
     ui: UIConfig = field(default_factory=UIConfig)
     smtp: SMTPConfig = field(default_factory=SMTPConfig)
@@ -104,18 +104,24 @@ def load() -> Config:
     icloud_raw = raw.get("icloud", {})
     icloud = ICloudConfig(
         username=_env_str("PA_ICLOUD_USERNAME") or icloud_raw.get("username", ""),
-        self_addresses=(
-            _env_list("PA_ICLOUD_SELF_ADDRESSES")
-            or icloud_raw.get("self_addresses", [])
-        ),
         ingest_since_days=int(
             _env_str("PA_ICLOUD_INGEST_SINCE_DAYS")
             or icloud_raw.get("ingest_since_days", 30)
         ),
-        watch_patterns=(
-            _env_list("PA_ICLOUD_WATCH_PATTERNS")
-            or icloud_raw.get("watch_patterns", [])
-        ),
+    )
+
+    # ── Top-level identity config (fall back to icloud.* for backward compat) ──
+    self_addresses = (
+        _env_list("PA_SELF_ADDRESSES")
+        or raw.get("self_addresses")
+        or _env_list("PA_ICLOUD_SELF_ADDRESSES")
+        or icloud_raw.get("self_addresses", [])
+    )
+    watch_patterns = (
+        _env_list("PA_WATCH_PATTERNS")
+        or raw.get("watch_patterns")
+        or _env_list("PA_ICLOUD_WATCH_PATTERNS")
+        or icloud_raw.get("watch_patterns", [])
     )
 
     # ── Gmail ────────────────────────────────────────────────────────────────
@@ -186,10 +192,12 @@ def load() -> Config:
 
     return Config(
         icloud=icloud,
-        gmail=gmail,
         digest=digest,
         weather=weather,
         stocks=stocks,
+        self_addresses=self_addresses,
+        watch_patterns=watch_patterns,
+        gmail=gmail,
         ui=ui,
         smtp=smtp,
         calendar=calendar,

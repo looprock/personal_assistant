@@ -32,10 +32,10 @@ def main() -> None:
     args = parser.parse_args()
 
     cfg = cfg_module.cfg
-    log.info("self_addresses: %s", cfg.icloud.self_addresses)
+    log.info("self_addresses: %s", cfg.self_addresses)
     log.info("since_days: %d", args.days)
 
-    emails = fetch_self_sent(cfg.icloud.self_addresses, since_days=args.days)
+    emails = fetch_self_sent(cfg.self_addresses, since_days=args.days)
 
     if not emails:
         log.info("No self-sent emails found.")

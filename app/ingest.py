@@ -46,11 +46,12 @@ async def _ingest_icloud(
 async def _ingest_gmail(
     credentials_envs: list[str],
     self_addresses: list[str],
+    watch_patterns: list[str] | None = None,
 ) -> list:
-    """Fetch self-sent emails from all configured Gmail accounts."""
+    """Fetch self-sent and watched emails from all configured Gmail accounts."""
     if not credentials_envs:
         return []
-    return await gmail_mod.fetch_self_sent(credentials_envs, self_addresses)
+    return await gmail_mod.fetch_self_sent(credentials_envs, self_addresses, watch_patterns=watch_patterns)
 
 
 async def ingest_self_sent_emails(
@@ -72,7 +73,7 @@ async def ingest_self_sent_emails(
     # Fetch from all sources concurrently
     icloud_result, gmail_emails = await asyncio.gather(
         _ingest_icloud(self_addresses, since_days, watch_patterns=watch_patterns),
-        _ingest_gmail(gmail_credentials_envs or [], self_addresses),
+        _ingest_gmail(gmail_credentials_envs or [], self_addresses, watch_patterns=watch_patterns),
         return_exceptions=True,
     )
 
