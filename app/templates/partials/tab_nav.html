@@ -1,4 +1,4 @@
-{# Fixed bottom tab navigation — active_tab: 'home' | 'todos' | 'jira' | 'slack' #}
+{# Fixed bottom tab navigation — active_tab: 'home' | 'todos' | 'jira' | 'linear' | 'slack' #}
 <nav class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-20">
   <div class="max-w-4xl mx-auto flex">
 
@@ -34,6 +34,21 @@
       {% if jira_count %}
       <span class="absolute top-1 right-6 w-4 h-4 bg-orange-400 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
         {{ jira_count }}
+      </span>
+      {% endif %}
+    </a>
+
+    <a href="/linear"
+       class="relative flex-1 flex flex-col items-center py-3 gap-1 text-xs font-medium transition-colors
+              {{ 'text-blue-600' if active_tab == 'linear' else 'text-gray-400 hover:text-gray-600' }}">
+      <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+        <path stroke-linecap="round" stroke-linejoin="round"
+              d="M13 10V3L4 14h7v7l9-11h-7z" />
+      </svg>
+      Linear
+      {% if linear_count %}
+      <span class="absolute top-1 right-6 w-4 h-4 bg-purple-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+        {{ linear_count }}
       </span>
       {% endif %}
     </a>

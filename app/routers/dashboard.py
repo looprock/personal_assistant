@@ -28,6 +28,7 @@ async def _missing_badge_counts(
     *,
     unprocessed_count: int | None = None,
     jira_count: int | None = None,
+    linear_count: int | None = None,
     slack_count: int | None = None,
 ) -> dict:
     """Query only the badge counts that weren't already derived from fetched rows."""
@@ -40,6 +41,11 @@ async def _missing_badge_counts(
             "SELECT COUNT(*) FROM jira_tickets WHERE ticket_key NOT IN "
             "(SELECT ticket_key FROM jira_ignores)"
         )
+    if linear_count is None:
+        linear_count = await conn.fetchval(
+            "SELECT COUNT(*) FROM linear_issues WHERE issue_id NOT IN "
+            "(SELECT issue_id FROM linear_ignores)"
+        )
     if slack_count is None:
         slack_count = await conn.fetchval(
             "SELECT COUNT(*) FROM slack_mentions"
@@ -47,6 +53,7 @@ async def _missing_badge_counts(
     return {
         "unprocessed_count": unprocessed_count,
         "jira_count": jira_count,
+        "linear_count": linear_count,
         "slack_count": slack_count,
     }
 
@@ -65,6 +72,10 @@ async def index(request: Request):
         jira_tickets = await conn.fetch(
             "SELECT * FROM jira_tickets WHERE ticket_key NOT IN "
             "(SELECT ticket_key FROM jira_ignores) ORDER BY last_activity ASC NULLS LAST"
+        )
+        linear_issues = await conn.fetch(
+            "SELECT * FROM linear_issues WHERE issue_id NOT IN "
+            "(SELECT issue_id FROM linear_ignores) ORDER BY last_activity ASC NULLS LAST"
         )
         slack_mentions = await conn.fetch(
             "SELECT * FROM slack_mentions ORDER BY cached_at DESC"
@@ -96,6 +107,7 @@ async def index(request: Request):
         "unprocessed_todos": [dict(r) for r in unprocessed],
         "active_todos": [dict(r) for r in active],
         "jira_tickets": [dict(r) for r in jira_tickets],
+        "linear_issues": [dict(r) for r in linear_issues],
         "slack_mentions": [dict(r) for r in slack_mentions],
         "weather": weather,
         "stocks": stocks,
@@ -103,6 +115,7 @@ async def index(request: Request):
         "job_health": await job_status.health(),
         "unprocessed_count": len(unprocessed),
         "jira_count": len(jira_tickets),
+        "linear_count": len(linear_issues),
         "slack_count": len(slack_mentions),
     })
 
@@ -167,6 +180,27 @@ async def jira_page(request: Request):
         "request": request,
         "active_tab": "jira",
         "jira_tickets": [dict(r) for r in jira_tickets],
+        "job_health": await job_status.health(),
+        **badge_counts,
+    })
+
+
+@router.get("/linear", response_class=HTMLResponse)
+async def linear_page(request: Request):
+    async with pool().acquire() as conn:
+        linear_issues = await conn.fetch(
+            "SELECT * FROM linear_issues WHERE issue_id NOT IN "
+            "(SELECT issue_id FROM linear_ignores) ORDER BY last_activity ASC NULLS LAST"
+        )
+        badge_counts = await _missing_badge_counts(
+            conn,
+            linear_count=len(linear_issues),
+        )
+
+    return templates.TemplateResponse("linear.html", {
+        "request": request,
+        "active_tab": "linear",
+        "linear_issues": [dict(r) for r in linear_issues],
         "job_health": await job_status.health(),
         **badge_counts,
     })

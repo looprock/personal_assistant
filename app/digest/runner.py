@@ -16,7 +16,7 @@ import asyncpg
 
 from app import config as cfg_module
 from app.db import pool
-from app.integrations import weather, stocks, slack, jira, calendar
+from app.integrations import weather, stocks, slack, jira, linear, calendar
 from app.models import WeatherData, StockData
 from app.digest.renderer import render_email
 from app.digest.sender import send_email
@@ -45,6 +45,16 @@ async def _refresh_jira_cache(conn: asyncpg.Connection, tickets: list[jira.JiraT
             "INSERT INTO jira_tickets (id, ticket_key, title, status, url, last_activity) "
             "VALUES ($1, $2, $3, $4, $5, $6)",
             [(uuid4(), t.key, t.title, t.status, t.url, t.last_activity) for t in tickets],
+        )
+
+
+async def _refresh_linear_cache(conn: asyncpg.Connection, issues: list[linear.LinearIssue]) -> None:
+    await conn.execute("TRUNCATE TABLE linear_issues")
+    if issues:
+        await conn.executemany(
+            "INSERT INTO linear_issues (id, issue_id, title, status, url, last_activity) "
+            "VALUES ($1, $2, $3, $4, $5, $6)",
+            [(uuid4(), i.issue_id, i.title, i.status, i.url, i.last_activity) for i in issues],
         )
 
 
@@ -93,11 +103,12 @@ async def run(dry_run: bool = False) -> dict[str, Any]:
     # ── Fetch all sources concurrently ──────────────────────────────────────
     import asyncio
 
-    log.info("[1/5] Fetching weather (%s)…", cfg.weather.location or "disabled")
-    log.info("[2/5] Fetching stocks (%s)…", ", ".join(cfg.stocks.tickers) or "disabled")
-    log.info("[3/5] Fetching calendar events (calendars: %s)…", ", ".join(cfg.calendar.calendars) or "all")
-    log.info("[4/5] Fetching Slack @mentions…")
-    log.info("[5/5] Fetching stale Jira tickets…")
+    log.info("[1/6] Fetching weather (%s)…", cfg.weather.location or "disabled")
+    log.info("[2/6] Fetching stocks (%s)…", ", ".join(cfg.stocks.tickers) or "disabled")
+    log.info("[3/6] Fetching calendar events (calendars: %s)…", ", ".join(cfg.calendar.calendars) or "all")
+    log.info("[4/6] Fetching Slack @mentions…")
+    log.info("[5/6] Fetching stale Jira tickets…")
+    log.info("[6/6] Fetching stale Linear issues…")
 
     weather_task = asyncio.create_task(
         weather.fetch(cfg.weather.location) if cfg.weather.location else asyncio.sleep(0)
@@ -119,6 +130,9 @@ async def run(dry_run: bool = False) -> dict[str, Any]:
     jira_task = asyncio.create_task(
         jira.fetch_stale_tickets()
     )
+    linear_task = asyncio.create_task(
+        linear.fetch_stale_issues()
+    )
 
     (
         weather_data,
@@ -126,10 +140,11 @@ async def run(dry_run: bool = False) -> dict[str, Any]:
         calendar_events,
         slack_mentions,
         jira_tickets,
+        linear_issues,
     ) = cast(
-        tuple[Any, Any, Any, Any, Any],
+        tuple[Any, Any, Any, Any, Any, Any],
         await asyncio.gather(
-            weather_task, stocks_task, calendar_task, slack_task, jira_task,
+            weather_task, stocks_task, calendar_task, slack_task, jira_task, linear_task,
             return_exceptions=True,
         ),
     )
@@ -139,6 +154,7 @@ async def run(dry_run: bool = False) -> dict[str, Any]:
     log.info("  calendar:  %s", calendar_events if isinstance(calendar_events, Exception) else f"{len(calendar_events)} event(s)")
     log.info("  slack:     %s", slack_mentions if isinstance(slack_mentions, Exception) else f"{len(slack_mentions)} mention(s)")
     log.info("  jira:      %s", jira_tickets if isinstance(jira_tickets, Exception) else f"{len(jira_tickets)} ticket(s)")
+    log.info("  linear:    %s", linear_issues if isinstance(linear_issues, Exception) else f"{len(linear_issues)} issue(s)")
 
     # ── Fetch todos from DB ──────────────────────────────────────────────────
     log.info("Querying unprocessed todos from DB…")
@@ -164,6 +180,11 @@ async def run(dry_run: bool = False) -> dict[str, Any]:
         if isinstance(jira_tickets, list):
             await _refresh_jira_cache(conn, jira_tickets)
             log.info("  jira cache refreshed: %d ticket(s)", len(jira_tickets))
+
+        # ── Refresh Linear cache ─────────────────────────────────────────────
+        if isinstance(linear_issues, list):
+            await _refresh_linear_cache(conn, linear_issues)
+            log.info("  linear cache refreshed: %d issue(s)", len(linear_issues))
 
         # ── Refresh Slack cache (filtered by ignore list) ────────────────────
         visible_mentions: list[slack.SlackMention] = []
@@ -191,6 +212,10 @@ async def run(dry_run: bool = False) -> dict[str, Any]:
         "jira_tickets": (
             [{"key": t.key, "title": t.title, "status": t.status, "url": t.url} for t in jira_tickets]
             if isinstance(jira_tickets, list) else []
+        ),
+        "linear_issues": (
+            [{"id": i.issue_id, "title": i.title, "status": i.status, "url": i.url} for i in linear_issues]
+            if isinstance(linear_issues, list) else []
         ),
         "slack_mentions": [
             {"text": m.text, "channel": m.channel_name, "sender": m.sender, "permalink": m.permalink}

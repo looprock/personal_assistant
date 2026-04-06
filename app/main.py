@@ -22,6 +22,7 @@ from app.routers.todos import router as todos_router
 from app.routers.dashboard import router as dashboard_router
 from app.routers.slack import router as slack_router
 from app.routers.jira import router as jira_router
+from app.routers.linear import router as linear_router
 
 log = logging.getLogger(__name__)
 
@@ -46,6 +47,7 @@ app.include_router(todos_router)
 app.include_router(dashboard_router)
 app.include_router(slack_router)
 app.include_router(jira_router)
+app.include_router(linear_router)
 
 
 @app.exception_handler(303)

@@ -8,3 +8,5 @@ secrets*
 tmp/
 app/__pycache__
 client_secret.json
+gmail_token.json
+client_secret.json

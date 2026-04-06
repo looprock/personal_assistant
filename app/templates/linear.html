@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Linear{% endblock %}
+{% block body %}
+
+<div class="max-w-4xl mx-auto px-4 py-6 pb-24 space-y-4">
+
+  {% include "partials/page_header.html" %}
+
+  {% set search_url = "/linear/search/htmx" %}
+  {% set search_target = "#linear-content" %}
+  {% include "partials/search_input.html" %}
+
+  <div class="bg-white rounded-2xl p-4 shadow-sm">
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="text-sm font-semibold text-gray-700">Stale Linear Issues</h2>
+      <span class="bg-purple-100 text-purple-600 text-xs font-semibold px-2 py-0.5 rounded-full">
+        {{ linear_issues | length }}
+      </span>
+    </div>
+    <div id="linear-content">
+      {% include "partials/linear_list.html" %}
+    </div>
+  </div>
+
+
+</div>
+
+{% include "partials/tab_nav.html" %}
+
+{% endblock %}

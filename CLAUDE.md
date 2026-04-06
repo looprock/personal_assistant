@@ -107,6 +107,19 @@ slack_mentions:  -- cache populated by digest run; dismissed items removed via U
 slack_ignores:  -- persistent ignore list; UI dismiss button adds entries here
   message_ts   TEXT PRIMARY KEY
   ignored_at   TIMESTAMPTZ DEFAULT NOW()
+
+linear_issues:  -- cache populated by digest run; dismissed items hidden via UI
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid()
+  issue_id      TEXT UNIQUE     -- e.g. "ABC-123"
+  title         TEXT
+  status        TEXT
+  url           TEXT            -- direct link to issue in Linear
+  last_activity TIMESTAMPTZ
+  cached_at     TIMESTAMPTZ     DEFAULT NOW()
+
+linear_ignores:  -- persistent ignore list; UI dismiss button adds entries here
+  issue_id    TEXT PRIMARY KEY
+  ignored_at  TIMESTAMPTZ DEFAULT NOW()
 ```
 
 **Job health thresholds** (in `app/job_status.py`):
@@ -125,13 +138,16 @@ slack_ignores:  -- persistent ignore list; UI dismiss button adds entries here
 | Source | Method | Purpose |
 |---|---|---|
 | iCloud Mail | IMAP + app-specific password | Self-sent email → todo ingestion; unresponded email scan; processed emails moved to `Archived_Todos` |
-| Gmail (multiple accounts) | Gmail API (OAuth2 per account) | Unresponded email scan only |
+| Gmail (multiple accounts) | Gmail API (OAuth2 per account, `gmail.modify` scope) | Self-sent + watch-pattern email ingestion; unresponded email scan; watched emails archived (INBOX label removed) after ingestion |
 | Jira | REST API v3 (`/rest/api/3/search/jql`) | Open tickets owned by user, inactive 1+ week |
+| Linear | GraphQL API (`api.linear.app/graphql`) | Open issues assigned to user, inactive 1+ week |
 | Slack | Slack API (OAuth token) | @mentions not responded to in 12h |
 | Weather | Open-Meteo (no key required) | Daily forecast |
 | Stocks | `yfinance` | Configurable tickers via `config.yaml`; cached in `snapshots` table |
 
-**iCloud self-sent detection:** configured via `self_addresses` list in `config.yaml` — any email where `FROM` is in that list is treated as a todo. Supports multiple sender aliases tied to the same iCloud account.
+**Self-sent detection:** configured via top-level `self_addresses` list in `config.yaml` (or `PA_SELF_ADDRESSES` env var) — any email where `FROM` is in that list is treated as a todo. Applies to both iCloud and Gmail. Supports multiple sender aliases.
+
+**Watch patterns:** configured via top-level `watch_patterns` list in `config.yaml` (or `PA_WATCH_PATTERNS` env var) — regex patterns matched against FROM addresses. Matching emails are ingested as todos but not archived in iCloud; in Gmail, the INBOX label is removed after ingestion. Applies to both providers.
 
 ### Email Digest Content (in order)
 1. Weather summary
@@ -139,8 +155,9 @@ slack_ignores:  -- persistent ignore list; UI dismiss button adds entries here
 3. Unprocessed todos (untagged, new since last digest)
 4. Active todo backlog (tagged, not snoozed, not complete)
 5. Jira tickets (status "To Do", no activity in 7+ days)
-6. Unanswered emails (iCloud + Gmail, 12h+ old)
-7. Unanswered Slack @mentions (12h+ old)
+6. Linear issues (open, assigned to user, no activity in 7+ days)
+7. Unanswered emails (iCloud + Gmail, 12h+ old)
+8. Unanswered Slack @mentions (12h+ old)
 
 ### Tech Stack
 
@@ -187,11 +204,14 @@ personal_assistant/
 │   ├── routers/
 │   │   ├── dashboard.py     # GET / — dashboard page with all data
 │   │   ├── todos.py         # Todo CRUD + HTMX endpoints
-│   │   └── slack.py         # POST /slack/ignore/{ts}, DELETE /slack/ignore/{ts}
+│   │   ├── slack.py         # POST /slack/ignore/{ts}, DELETE /slack/ignore/{ts}
+│   │   ├── jira.py          # Jira ticket dismiss/undismiss
+│   │   └── linear.py        # Linear issue dismiss/undismiss
 │   ├── integrations/
 │   │   ├── icloud.py        # IMAP client (todos + email scan)
-│   │   ├── gmail.py         # Gmail API client
-│   │   ├── jira.py          # Jira via MCP
+│   │   ├── gmail.py         # Gmail API client (self-sent + watch patterns)
+│   │   ├── jira.py          # Jira REST API v3
+│   │   ├── linear.py        # Linear GraphQL API
 │   │   ├── slack.py         # Slack API client
 │   │   ├── weather.py       # Open-Meteo
 │   │   └── stocks.py        # yfinance
@@ -229,6 +249,7 @@ All config is available via environment variables. `config.yaml` is optional and
 | `self_addresses` | `PA_SELF_ADDRESSES` | comma-separated; falls back to `PA_ICLOUD_SELF_ADDRESSES` / `icloud.self_addresses` for backward compat |
 | `watch_patterns` | `PA_WATCH_PATTERNS` | comma-separated regex patterns; INBOX emails FROM matching addresses are ingested as todos but NOT archived (e.g. `.*@parentsquare\\.com`); applies to both iCloud and Gmail; falls back to `PA_ICLOUD_WATCH_PATTERNS` / `icloud.watch_patterns` |
 | `icloud.username` | `PA_ICLOUD_USERNAME` | |
+| `icloud.ingest_since_days` | `PA_ICLOUD_INGEST_SINCE_DAYS` | iCloud INBOX lookback in days, default `30` |
 | `gmail.accounts[*].credentials_env` | `PA_GMAIL_CREDENTIALS_ENVS` | comma-separated list of env var names holding OAuth JSON |
 | `digest.recipient` | `PA_DIGEST_RECIPIENT` | |
 | `digest.schedule` | `PA_DIGEST_SCHEDULE` | cron expression, default `0 7,14 * * *` |
@@ -244,6 +265,9 @@ All config is available via environment variables. `config.yaml` is optional and
 | `PA_JWT_SECRET` | JWT signing secret for web UI auth |
 | `PA_SMTP_HOST` / `PA_SMTP_PORT` / `PA_SMTP_USER` / `PA_SMTP_PASSWORD` | Digest email delivery |
 | `PA_SLACK_TOKEN` | Slack OAuth token |
+| `PA_JIRA_URL` / `PA_JIRA_EMAIL` / `PA_JIRA_API_TOKEN` | Jira REST API credentials |
+| `PA_JIRA_REQUIRE_SPRINT` | Optional; `true` restricts to open sprints only |
+| `PA_LINEAR_API_KEY` | Linear API key for stale issue tracking |
 | `TODOIST_API_TOKEN` | Todoist importer only |
 | `DROPBOX_ACCESS_TOKEN` | Joplin importer only |
 | `JOPLIN_DROPBOX_PATH` | Optional, defaults to `/Apps/Joplin` |

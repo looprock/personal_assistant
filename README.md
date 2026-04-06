@@ -16,6 +16,7 @@ uv sync
 At minimum you need:
 ```bash
 export DATABASE_URL="postgresql://user:pass@host/dbname"   # NeonDB connection string
+export ANTHROPIC_API_KEY="sk-ant-..."                      # Claude API for digest summarization
 export PA_ICLOUD_USERNAME="you@icloud.com"
 export PA_ICLOUD_PASSWORD="xxxx-xxxx-xxxx-xxxx"            # app-specific password from appleid.apple.com
 export PA_JWT_SECRET="your-fixed-secret-here"              # generate once with: openssl rand -hex 32
@@ -28,16 +29,14 @@ export PA_SMTP_PASSWORD="your-smtp-password"
 export PA_DIGEST_RECIPIENT="you@icloud.com"
 export PA_WEATHER_LOCATION="Austin, US"
 export PA_STOCKS_TICKERS="LIFE,AAPL"                       # comma-separated
-export PA_ICLOUD_SELF_ADDRESSES="you@icloud.com,alias@icloud.com"
-export PA_ICLOUD_WATCH_PATTERNS=".*@parentsquare\.com"  # optional: ingest-but-don't-archive patterns (comma-separated regexes)
+export PA_SELF_ADDRESSES="you@icloud.com,alias@icloud.com" # all your email addresses (used by iCloud + Gmail)
 ```
 
 Optional (can also be set in `config.yaml`):
 ```bash
-export PA_UI_USERNAME="admin"
-export PA_SMTP_HOST="smtp.gmail.com"
-export PA_SMTP_PORT="587"
-export PA_SMTP_USER="you@gmail.com"
+export PA_WATCH_PATTERNS=".*@parentsquare\.com,.*@school\.edu"  # regex patterns to ingest-but-don't-archive (applies to iCloud + Gmail)
+export PA_ICLOUD_INGEST_SINCE_DAYS="30"                    # how far back to scan iCloud (default: 30)
+export PA_DIGEST_INCLUDE_TAGS="work,urgent"                # comma-separated; omit to include all tagged todos
 ```
 
 Optional integrations (omit to disable):
@@ -46,10 +45,13 @@ export PA_SLACK_TOKEN="xoxp-..."
 export PA_JIRA_URL="https://yourco.atlassian.net"
 export PA_JIRA_EMAIL="you@yourco.com"
 export PA_JIRA_API_TOKEN="..."                             # from id.atlassian.com/manage-profile/security/api-tokens
+export PA_JIRA_REQUIRE_SPRINT="true"                       # optional: only show tickets in open sprints
+export PA_LINEAR_API_KEY="lin_api_..."                     # from Linear Settings > API > Personal API keys
 export PA_GMAIL_CREDENTIALS_ENVS="GMAIL_OAUTH_CREDS_1"    # comma-separated env var names
-export GMAIL_OAUTH_CREDS_1='{"client_id":"...","client_secret":"...","refresh_token":"..."}'
-export PA_DIGEST_INCLUDE_TAGS="work,urgent"                # comma-separated; omit to include all tagged todos
+export GMAIL_OAUTH_CREDS_1='{"client_id":"...","client_secret":"...","refresh_token":"...","email":"you@gmail.com"}'
 ```
+
+> **Backward compatibility:** `PA_ICLOUD_SELF_ADDRESSES` and `PA_ICLOUD_WATCH_PATTERNS` still work as fallbacks if the top-level `PA_SELF_ADDRESSES` / `PA_WATCH_PATTERNS` are not set.
 
 ### 3. Run locally
 ```bash
@@ -126,7 +128,7 @@ Each Gmail account needs its own OAuth2 credentials JSON blob stored in an env v
    from google_auth_oauthlib.flow import InstalledAppFlow
    flow = InstalledAppFlow.from_client_secrets_file(
        "client_secret.json",
-       scopes=["https://www.googleapis.com/auth/gmail.readonly"]
+       scopes=["https://www.googleapis.com/auth/gmail.modify"]
    )
    creds = flow.run_local_server(port=0)
    print(json.dumps({
@@ -138,7 +140,14 @@ Each Gmail account needs its own OAuth2 credentials JSON blob stored in an env v
    EOF
    ```
    > Requires `google-auth-oauthlib`: `uv add google-auth-oauthlib`
+   >
+   > The `gmail.modify` scope is needed so watched emails can be archived (INBOX label removed) after ingestion. If you only need read-only scanning (no watch patterns), `gmail.readonly` also works.
 6. Store the printed JSON as an env var (e.g. `GMAIL_OAUTH_CREDS_WORK`) and add the env var name to `PA_GMAIL_CREDENTIALS_ENVS`
+
+#### Linear API key (`PA_LINEAR_API_KEY`)
+1. Go to [linear.app](https://linear.app) → **Settings → API → Personal API keys**
+2. Click **Create key**, give it a label
+3. Copy the key (starts with `lin_api_`)
 
 #### Todoist API token (`TODOIST_API_TOKEN`) — importer only
 1. Log in to [todoist.com](https://todoist.com) → **Settings → Integrations → Developer**
@@ -328,12 +337,14 @@ docker push your-registry/personal-assistant:latest
 kubectl apply -f k8s/namespace.yaml
 kubectl create secret generic personal-assistant-secrets \
   --from-literal=DATABASE_URL="$DATABASE_URL" \
+  --from-literal=ANTHROPIC_API_KEY="$ANTHROPIC_API_KEY" \
   --from-literal=PA_ICLOUD_PASSWORD="$PA_ICLOUD_PASSWORD" \
   --from-literal=PA_JWT_SECRET="$PA_JWT_SECRET" \
   --from-literal=PA_UI_PASSWORD="$PA_UI_PASSWORD" \
   --from-literal=PA_SMTP_PASSWORD="$PA_SMTP_PASSWORD" \
   --from-literal=PA_SLACK_TOKEN="$PA_SLACK_TOKEN" \
   --from-literal=PA_JIRA_API_TOKEN="$PA_JIRA_API_TOKEN" \
+  --from-literal=PA_LINEAR_API_KEY="$PA_LINEAR_API_KEY" \
   -n personal-assistant
 
 # Apply workloads

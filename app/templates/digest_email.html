@@ -125,6 +125,21 @@
   </div>
   {% endif %}
 
+  {# ── Linear issues ─────────────────────────────────────────────────── #}
+  {% if linear_issues %}
+  <div class="section">
+    <h2>Stale Linear Issues</h2>
+    {% for i in linear_issues %}
+    <div class="item">
+      <div class="item-title">
+        <a href="{{ i.url }}">{{ i.id }}</a> — {{ i.title }}
+      </div>
+      <div class="item-meta">{{ i.status }}</div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
   {# ── Slack mentions ──────────────────────────────────────────────────── #}
   {% if slack_mentions %}
   <div class="section">
@@ -141,7 +156,7 @@
   </div>
   {% endif %}
 
-  {% if not (weather or stocks or calendar_events or unprocessed_todos or jira_tickets or slack_mentions) %}
+  {% if not (weather or stocks or calendar_events or unprocessed_todos or jira_tickets or linear_issues or slack_mentions) %}
   <div class="section">
     <p class="empty">Nothing to report today. Enjoy your day!</p>
   </div>
