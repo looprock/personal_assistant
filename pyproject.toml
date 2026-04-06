@@ -41,6 +41,9 @@ testpaths = ["tests"]
 [tool.hatch.build.targets.wheel]
 packages = ["app", "jobs"]
 
+[tool.uv.workspace]
+members = ["tmp"]
+
 [dependency-groups]
 dev = [
     "mypy>=1.19.1",

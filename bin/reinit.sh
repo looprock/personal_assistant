@@ -1,10 +1,18 @@
 #!/bin/bash -x
-launchctl list |grep personal                                                                                                                                          09:51:41
+launchctl list |grep personal
 echo "#### unloading"
-# launchctl unload ~/Library/LaunchAgents/com.personalassistant.ui.plist                                                                                              10s 09:51:08
 launchctl bootout gui/$(id -u)/com.personalassistant.ui
-launchctl list |grep personal                                                                                                                                           09:51:41
+sleep 1
+launchctl bootout gui/$(id -u)/com.personalassistant.emailwatcher
+sleep 1
+launchctl bootout gui/$(id -u)/com.personalassistant.digest
+sleep 1
+launchctl list |grep personal
 echo "#### loading"
-# launchctl load ~/Library/LaunchAgents/com.personalassistant.ui.plist
 launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.personalassistant.ui.plist
+sleep 1
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.personalassistant.emailwatcher.plist
+sleep 1
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.personalassistant.digest.plist
+sleep 1
 launchctl list |grep personal
