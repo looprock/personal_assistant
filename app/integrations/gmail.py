@@ -27,7 +27,7 @@ import httpx
 log = logging.getLogger(__name__)
 
 GMAIL_API_BASE = "https://gmail.googleapis.com/gmail/v1"
-_SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
+_SCOPES = ["https://www.googleapis.com/auth/gmail.modify"]
 
 
 @dataclass
@@ -39,6 +39,8 @@ class GmailMessage:
     account: str  # which Gmail account this came from
     body: Optional[str] = None
     labels: list[str] = field(default_factory=list)
+    gmail_id: str = ""  # Gmail API message ID, for archive/modify calls
+    credentials_env: str = ""  # env var name, needed to get token for archive
 
 
 def _get_credentials(credentials_env: str) -> dict[str, Any]:
@@ -214,6 +216,8 @@ async def _list_watched_for_account(
                     account=account_email,
                     body=body,
                     labels=[hint],
+                    gmail_id=item["id"],
+                    credentials_env=credentials_env,
                 ))
 
     return messages
@@ -333,3 +337,38 @@ async def fetch_unanswered(
             messages.extend(result)
 
     return messages
+
+
+async def archive_messages(messages: list[GmailMessage]) -> None:
+    """Remove INBOX label from Gmail messages so they don't reappear in watch queries.
+
+    Requires gmail.modify scope. Groups messages by credentials_env to reuse tokens.
+    """
+    if not messages:
+        return
+
+    by_creds: dict[str, list[GmailMessage]] = {}
+    for msg in messages:
+        if msg.gmail_id and msg.credentials_env:
+            by_creds.setdefault(msg.credentials_env, []).append(msg)
+
+    for creds_env, msgs in by_creds.items():
+        try:
+            creds = _get_credentials(creds_env)
+            access_token = await _refresh_access_token(creds)
+            headers = {"Authorization": f"Bearer {access_token}"}
+
+            async with httpx.AsyncClient(timeout=30) as client:
+                for msg in msgs:
+                    resp = await client.post(
+                        f"{GMAIL_API_BASE}/users/me/messages/{msg.gmail_id}/modify",
+                        headers=headers,
+                        json={"removeLabelIds": ["INBOX"]},
+                    )
+                    if resp.status_code == 200:
+                        log.info("Archived Gmail message: %s", msg.subject)
+                    else:
+                        log.warning("Failed to archive Gmail message %s: %s %s",
+                                    msg.gmail_id, resp.status_code, resp.text)
+        except Exception as e:
+            log.error("Gmail archive failed for %s: %s", creds_env, e)

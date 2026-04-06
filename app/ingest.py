@@ -97,6 +97,7 @@ async def ingest_self_sent_emails(
     log.info("Found %d self-sent email(s) across all accounts", len(all_emails))
 
     archived_uids: list[str] = []
+    gmail_to_archive: list[gmail_mod.GmailMessage] = []
     created = 0
 
     # Build source_refs upfront so we can batch-check existence in one query.
@@ -122,6 +123,8 @@ async def ingest_self_sent_emails(
                 log.debug("Skipping already-ingested email: %s", email.subject)
                 if source == "icloud" and email.uid:
                     archived_uids.append(email.uid)
+                if source == "gmail" and hasattr(email, "gmail_id") and email.gmail_id:
+                    gmail_to_archive.append(email)
                 continue
 
             await conn.execute(
@@ -137,10 +140,12 @@ async def ingest_self_sent_emails(
             )
             if source == "icloud" and email.uid:
                 archived_uids.append(email.uid)
+            if source == "gmail" and hasattr(email, "gmail_id") and email.gmail_id:
+                gmail_to_archive.append(email)
             created += 1
             log.info("Ingested todo from %s: %s", source, email.subject)
 
-    # Archive processed iCloud emails
+    # Archive processed emails
     if archived_uids:
         loop = asyncio.get_running_loop()
         with ThreadPoolExecutor(max_workers=1) as executor:
@@ -148,5 +153,8 @@ async def ingest_self_sent_emails(
                 executor,
                 lambda: icloud_mod.archive_emails(archived_uids),
             )
+
+    if gmail_to_archive:
+        await gmail_mod.archive_messages(gmail_to_archive)
 
     return created

@@ -7,3 +7,4 @@ secrets*
 *__pycache__
 tmp/
 app/__pycache__
+client_secret.json
